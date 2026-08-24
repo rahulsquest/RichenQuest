@@ -1,0 +1,21 @@
+{
+  "name": "richenquest-platform",
+  "version": "1.0.0",
+  "description": "RichenQuest — Complete Student Platform with Zoho Catalyst & Automation Ready Architecture",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently -k -n \"BACKEND,FRONTEND\" -c \"blue,magenta\" \"node functions/devServer.js\" \"npm run --prefix client dev\"",
+    "dev:backend": "node functions/devServer.js",
+    "dev:frontend": "npm run --prefix client dev",
+    "build": "npm run --prefix client build",
+    "start": "node functions/devServer.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
