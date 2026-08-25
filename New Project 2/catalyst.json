@@ -80,5 +80,11 @@
       "entry": "index.js",
       "runtime": "nodejs18.x"
     }
+  ],
+  "slate": [
+    {
+      "name": "rq-site",
+      "source": "client/dist"
+    }
   ]
 }
