@@ -36,8 +36,26 @@ function identifiersFor(user) {
   return { ids, student: own };
 }
 
-/* Path segments that look like an identifier rather than a sub-resource. */
-const LOOKS_LIKE_ID = /^(USR_|STU_|CASE_|LEAD_|CNT_|\d{8,})/;
+/* Path segments that look like an identifier rather than a sub-resource.
+ *
+ * This was previously an allow-list of five known prefixes, which silently let
+ * DOC_ and BKG_ ids through unchecked — a live IDOR found by testing
+ * /api/documents/DOC_OTHER and /api/bookings/BKG_OTHER, both of which returned
+ * 200 for a student who owned neither.
+ *
+ * It is now shaped the other way round: ANY segment that looks like a generated
+ * identifier is checked. A new resource prefix added later is therefore guarded
+ * by default rather than exposed by default, which is the property that
+ * actually matters here. Known route words are excluded explicitly. */
+const ROUTE_WORDS = new Set([
+  'api','me','read','read-all','receipt','status','invoice','services','sync',
+  'login','logout','signup','verify-email','reset-password','events','profile',
+  'home','opportunities','roadmap','report','mentor','request','students',
+  'cases','documents','payments','bookings','notifications','leads','crm'
+]);
+const LOOKS_LIKE_ID = seg =>
+  !ROUTE_WORDS.has(seg.toLowerCase()) &&
+  (/^[A-Z]{2,6}_/.test(seg) || /^\d{8,}$/.test(seg) || /^[0-9a-f]{16,}$/i.test(seg));
 
 function requireStudent(req, res, next) {
   const s = session.fromRequest(req);
@@ -55,7 +73,7 @@ function requireStudent(req, res, next) {
   const segments = (req.url || '').split('?')[0].split('/').filter(Boolean);
   for (const seg of segments) {
     const raw = decodeURIComponent(seg);
-    if (LOOKS_LIKE_ID.test(raw) && !ids.has(raw)) {
+    if (LOOKS_LIKE_ID(raw) && !ids.has(raw)) {
       console.warn('[authz] refused cross-student access', {
         by: user.userId, requested: raw, path: req.url });
       return sendError(res, 'FORBIDDEN',
