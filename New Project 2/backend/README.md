@@ -1,20 +1,30 @@
 # RichenQuest API — Catalyst AppSail source
 
-Lean copy of `functions/` plus a minimal `package.json`, deployed as the
-Catalyst AppSail service `rq-api` in project 53691000000016002.
+Deployed as AppSail service `rq-api` in project 53691000000016002.
+Deploy: `catalyst deploy appsail --name rq-api`
 
-Deploy:  catalyst deploy appsail --name rq-api
+## Verified working in a clean room
+A clean `npm install --omit=dev` from this package.json, started with
+`X_ZOHO_CATALYST_LISTEN_PORT=9004 node server.js`, serves:
 
-STATUS 2026-08-25: deploys successfully but the container returns 503 —
-"Execution failed. Please check the startup command or port." The app binds
-X_ZOHO_CATALYST_LISTEN_PORT / CATALYST_LISTEN_PORT / PORT on 0.0.0.0 and still
-fails. Container logs are not reachable from the CLI or the BaaS API, so the
-cause is not yet identified. Reproduce with:
-  curl -s https://rq-api-50043782438.development.catalystappsail.in/api/health
+    /                 200      /api/crm/status   200
+    /api/leads        200      /api/home         401 (auth required, correct)
 
-Why AppSail and not Catalyst Functions: the 11 handlers in functions/ are plain
-Express (req,res) handlers written for devServer.js. They have no
-catalyst-config.json, no per-function package.json, no Catalyst SDK, and they
-import ../shared/* from outside their own directories — Catalyst packages each
-function directory independently, so those imports would not resolve. Porting
-all 11 would mean rewriting them; AppSail runs the existing Express app as-is.
+## Real bug found and fixed
+functions/devServer.js calls app.listen() only inside
+`if (require.main === module)`. It exports the app, so any runtime that
+REQUIRES the entry instead of executing it as main gets an app that never
+binds and a process that exits 0. server.js now owns the listen, which works
+either way. This would have broken production on any such runtime.
+
+## Still failing in production, cause unidentified
+The deploy succeeds; the container returns 503 with Catalyst's generic
+"Execution failed. Please check the startup command or port." The identical
+package and command work locally. Ruled out by testing: nested entry path,
+require.main guard, port variable, bind address, missing root route, and the
+96 MB upload (now 160 KB).
+
+Container logs are console-only — Development > AppSail > rq-api > Logs.
+No CLI command and no BaaS API endpoint exposes them; the CLI source contains
+no appsail log endpoint at all. The startup error in those logs is the next
+thing needed.

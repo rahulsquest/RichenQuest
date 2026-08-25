@@ -67,6 +67,18 @@ app.use((req, res, next) => {
 });
 
 // Health check & System Info
+/*  Root liveness route. AppSail probes / to decide whether the container is
+ *  healthy; without it Express answers 404 and the platform reports
+ *  "Execution failed. Please check the startup command or port." even though
+ *  the process is running and serving /api correctly. This is deliberately
+ *  dependency-free so it stays 200 even when Zoho is unreachable — /api/health
+ *  is the endpoint that reports real degradation. */
+app.get('/', (req, res) => res.status(200).json({
+  service: 'RichenQuest API',
+  status: 'ok',
+  time: new Date().toISOString()
+}));
+
 /*  Health must distinguish "the process is up" from "Zoho actually answers".
  *  A health check that only proves Express started is how an outage gets
  *  reported as healthy. It returns no token and no credential — only whether
