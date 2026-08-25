@@ -42,3 +42,11 @@ Thumbs.db
 *.njsproj
 *.sln
 *.sw?
+
+# Any .env variant. '.env' alone did not cover .env.backup/.env.save,
+# which is how live Zoho credentials reached a public repository.
+.env.backup
+.env.save
+.env.*
+!.env.example
+!.env.production.example
