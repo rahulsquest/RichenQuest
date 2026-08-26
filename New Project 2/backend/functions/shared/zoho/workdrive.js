@@ -12,7 +12,7 @@ const zohoOAuth = require('./oauth');
 
 class ZohoWorkDriveService {
   constructor() {
-    this.apiDomain = process.env.ZOHO_WORKDRIVE_API_DOMAIN || 'https://workdrive.zoho.com/api/v1';
+    this.apiDomain = process.env.ZOHO_WORKDRIVE_API_DOMAIN || 'https://workdrive.zoho.in/api/v1';
   }
 
   isConfigured() {
@@ -40,7 +40,7 @@ class ZohoWorkDriveService {
     }
 
     const parentId = studentFolderId || this.getRootFolderId();
-    const url = `https://upload.zoho.com/workdrive-api/v1/stream/upload?parent_id=${parentId}`;
+    const url = `https://upload.zoho.in/workdrive-api/v1/stream/upload?parent_id=${parentId}`;
 
     try {
       // In production Node: Build FormData with file stream/buffer
