@@ -12,7 +12,7 @@ const zohoOAuth = require('./oauth');
 
 class ZohoBooksService {
   constructor() {
-    this.apiDomain = process.env.ZOHO_BOOKS_API_DOMAIN || 'https://www.zohoapis.com/books/v3';
+    this.apiDomain = process.env.ZOHO_BOOKS_API_DOMAIN || 'https://www.zohoapis.in/books/v3';
   }
 
   isConfigured() {

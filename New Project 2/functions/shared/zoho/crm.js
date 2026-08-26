@@ -12,7 +12,7 @@ const zohoOAuth = require('./oauth');
 
 class ZohoCrmService {
   constructor() {
-    this.apiDomain = process.env.ZOHO_CRM_API_DOMAIN || 'https://www.zohoapis.com';
+    this.apiDomain = process.env.ZOHO_CRM_API_DOMAIN || 'https://www.zohoapis.in';
   }
 
   isConfigured() {

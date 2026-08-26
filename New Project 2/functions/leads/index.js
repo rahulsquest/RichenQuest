@@ -80,8 +80,15 @@ async function handleLeads(req, res) {
     }, 'Your study abroad inquiry has been submitted successfully. A RichenQuest counselor will review your profile shortly.', 201);
   }
 
-  // GET /api/leads/:id
+  /*  GET is staff-only. POST above is the PUBLIC website contact form and must
+   *  stay open, but the listing below calls leadsTable.find() with no filter,
+   *  so an unauthenticated GET returned every lead in the system. It read as
+   *  harmless only because the local store happens to be empty. */
   if (method === 'GET') {
+    const sess = require('../shared/session').fromRequest(req);
+    if (!sess) {
+      return sendError(res, 'UNAUTHORIZED', 'Please sign in to continue.', 401);
+    }
     const leadId = req.params?.id || path.replace('/', '');
     if (!leadId) {
       return sendSuccess(res, leadsTable.find(), 'Leads retrieved.');
