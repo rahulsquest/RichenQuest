@@ -19,9 +19,17 @@ async function handleWebhooks(req, res) {
 
   const { event, token, data } = req.body || {};
 
-  // Verify Webhook Signature / Token if configured
+  /*  Fail closed, not conditionally. The previous check —
+   *  `if (expectedSecret && token && token !== expectedSecret)` — skipped
+   *  verification entirely whenever the caller simply omitted the token
+   *  field, regardless of whether ZOHO_WEBHOOK_SECRET was configured.
+   *  Confirmed live before this fix: a plain unauthenticated POST with no
+   *  token and no Authorization header rewrote a real case's counselorId
+   *  and stage. A missing secret now refuses every request rather than
+   *  silently accepting unauthenticated writes — same "fail loud on a
+   *  missing secret" rule session.js already applies to session signing. */
   const expectedSecret = process.env.ZOHO_WEBHOOK_SECRET;
-  if (expectedSecret && token && token !== expectedSecret) {
+  if (!expectedSecret || token !== expectedSecret) {
     return sendError(res, 'UNAUTHORIZED', 'Invalid webhook verification token', 401);
   }
 
