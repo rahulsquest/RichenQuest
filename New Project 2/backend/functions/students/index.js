@@ -35,17 +35,30 @@ async function handleStudents(req, res) {
 
   // PUT /api/students/:id
   if (method === 'PUT' || method === 'PATCH') {
-    const updates = req.body || {};
     const existing = studentsTable.findOne(s => s.studentId === studentId || s.userId === studentId);
 
     if (!existing) {
       return sendError(res, 'NOT_FOUND', 'Student profile not found to update.', 404);
     }
 
-    // Protect immutable fields
-    delete updates.studentId;
-    delete updates.userId;
-    delete updates.createdAt;
+    /*  Allowlist, not a denylist. A denylist of 3 fields (studentId, userId,
+     *  createdAt) let a student PATCH counselorId/caseId/leadId/email — a
+     *  real, confirmed-by-testing tamper: a student could reassign their own
+     *  counselor or hijack another case id just by naming it in the body.
+     *  Every field below is genuinely student-owned profile data; anything
+     *  else (identity, relationship, or engine-owned) is never accepted from
+     *  the caller, matching the same "guarded by default" shape as the
+     *  requireStudent identifier check. */
+    const EDITABLE_FIELDS = [
+      'fullName', 'phone', 'countryOfCitizenship', 'currentLocation',
+      'targetDegree', 'targetMajor', 'targetIntake', 'targetCountries',
+      'targetUniversities', 'academicHistory'
+    ];
+    const body = req.body || {};
+    const updates = {};
+    for (const f of EDITABLE_FIELDS) {
+      if (Object.prototype.hasOwnProperty.call(body, f)) updates[f] = body[f];
+    }
 
     const updated = studentsTable.update(s => s.studentId === existing.studentId, updates);
 
