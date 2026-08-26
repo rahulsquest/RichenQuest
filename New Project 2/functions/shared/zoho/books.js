@@ -104,6 +104,70 @@ class ZohoBooksService {
       };
     }
   }
+
+  async _request(path, options = {}) {
+    const url = `${this.apiDomain}${path}${path.includes('?') ? '&' : '?'}organization_id=${this.getOrgId()}`;
+    const headers = { 'Content-Type': 'application/json', ...(options.headers || {}) };
+    if (process.env.ZOHO_BOOKS_AUTH_TOKEN) {
+      headers['Authorization'] = `Zoho-authtoken ${process.env.ZOHO_BOOKS_AUTH_TOKEN}`;
+      return fetch(url, { ...options, headers });
+    }
+    return zohoOAuth.authenticatedFetch(url, { ...options, headers });
+  }
+
+  /**
+   * Finds the Books contact for a student by email, creating one only if
+   * none exists. Never creates a duplicate — always searches first.
+   */
+  async findOrCreateContact(email, fullName) {
+    if (!this.isConfigured()) throw new Error('Zoho Books is not configured on this server');
+
+    const found = await this._request(`/contacts?email=${encodeURIComponent(email)}`);
+    if (!found.ok) throw new Error(`Zoho Books contact lookup returned HTTP ${found.status}`);
+    const foundData = await found.json();
+    const existing = (foundData?.contacts || [])[0];
+    if (existing) return existing.contact_id;
+
+    const created = await this._request('/contacts', {
+      method: 'POST',
+      body: JSON.stringify({ contact_name: fullName || email, contact_type: 'customer',
+        contact_persons: [{ email, is_primary_contact: true }] })
+    });
+    if (!created.ok) throw new Error(`Zoho Books contact creation returned HTTP ${created.status}`);
+    const createdData = await created.json();
+    if (!createdData?.contact?.contact_id) throw new Error('Zoho Books did not return a contact_id');
+    return createdData.contact.contact_id;
+  }
+
+  /**
+   * Creates a real invoice for one line item. Caller is the only source of
+   * amount — this method takes a rate, never trusts anything from a browser.
+   * referenceNumber should be a stable, idempotency-relevant value (e.g. the
+   * service code) so the same fee is never invoiced twice for one student.
+   */
+  async createInvoice({ contactId, itemName, rate, referenceNumber }) {
+    if (!this.isConfigured()) throw new Error('Zoho Books is not configured on this server');
+    if (!(Number(rate) > 0)) throw new Error('Invoice rate must be a positive number');
+
+    const res = await this._request('/invoices', {
+      method: 'POST',
+      body: JSON.stringify({
+        customer_id: contactId,
+        reference_number: referenceNumber,
+        line_items: [{ name: itemName, rate: Number(rate), quantity: 1 }]
+      })
+    });
+    if (!res.ok) throw new Error(`Zoho Books invoice creation returned HTTP ${res.status}`);
+    const data = await res.json();
+    if (!data?.invoice?.invoice_id) throw new Error('Zoho Books did not return an invoice_id');
+    return {
+      invoiceId: data.invoice.invoice_id,
+      invoiceNumber: data.invoice.invoice_number,
+      status: data.invoice.status,
+      total: data.invoice.total,
+      currency: data.invoice.currency_code
+    };
+  }
 }
 
 const zohoBooks = new ZohoBooksService();

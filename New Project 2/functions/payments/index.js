@@ -16,6 +16,7 @@ const session = require('../shared/session');
 const pricing = require('../shared/pricing');
 const zohoBooks = require('../shared/zoho/books');
 const CatalystDataStore = require('../shared/dataStore');
+const usersTable = CatalystDataStore.getTable('Users');
 
 /* The lifecycle the product recognises. Anything Books reports that is not
  * mapped here is surfaced as UNKNOWN rather than guessed into a good state. */
@@ -118,14 +119,37 @@ module.exports = async function handlePayments(req, res) {
       }
       /* Idempotency: an invoice id already recorded against this student and
        * service means the invoice exists. Return it rather than creating a
-       * second one — a refresh or double-click must never bill twice. */
+       * second one — a refresh or double-click must never bill twice. This
+       * check, and the write after creation below, both go through the same
+       * persisted field on the Users record — not a separate in-memory
+       * table that would forget it on restart. */
       const existing = (me.user.invoices || {})[service_code];
       if (existing) {
         return sendSuccess(res, { idempotent: true, invoiceId: existing,
           note: 'An invoice already exists for this service.' });
       }
-      return sendError(res, 'NOT_IMPLEMENTED',
-        'Invoice creation is not enabled yet.', 501);
+
+      const contactId = await zohoBooks.findOrCreateContact(me.user.email, me.user.fullName);
+      const created = await zohoBooks.createInvoice({
+        contactId,
+        itemName: svc.name,
+        rate: svc.price,
+        referenceNumber: `${me.user.userId}:${service_code}`
+      });
+
+      usersTable.update(u => u.userId === me.user.userId, {
+        invoices: { ...(me.user.invoices || {}), [service_code]: created.invoiceId }
+      });
+      CatalystDataStore.getTable('IntegrationEvents').insert({
+        event: 'BOOKS_INVOICE_CREATED', userId: me.user.userId,
+        service: service_code, invoiceId: created.invoiceId
+      });
+
+      return sendSuccess(res, {
+        idempotent: false, invoiceId: created.invoiceId,
+        invoiceNumber: created.invoiceNumber, status: mapBooksStatus(created.status),
+        amount: created.total, currency: created.currency
+      }, 'Invoice created.', 201);
     }
 
     return sendError(res, 'NOT_FOUND', 'That resource does not exist.', 404);
