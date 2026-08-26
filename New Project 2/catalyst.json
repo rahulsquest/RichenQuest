@@ -92,5 +92,8 @@
       "name": "rq-api",
       "source": "backend"
     }
-  ]
+  ],
+  "apig": {
+    "enabled": true
+  }
 }
