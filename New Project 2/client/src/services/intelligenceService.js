@@ -66,6 +66,20 @@ class IntelligenceService {
   }
 
   /**
+   * Code Kitchen Score — profile_strength + profile_completeness, a
+   * faithful port of the real studentIntelligence Deluge engine (see
+   * backend/functions/shared/codeKitchenScore.js). Never an opportunity
+   * match score, never a probability. Throws with err.code
+   * PROFILE_NOT_LINKED or ZOHO_UNCONFIGURED when the score genuinely
+   * cannot be computed yet — callers must handle those as an honest
+   * "not available", never render a fabricated score.
+   */
+  async getProfileScore() {
+    const response = await apiClient.get('/profile-score');
+    return response.data;
+  }
+
+  /**
    * Creates a real CRM follow-up task for the counsellor queue.
    * kind: profile_review | opportunity_review | country_guidance |
    *       application_guidance | mentor

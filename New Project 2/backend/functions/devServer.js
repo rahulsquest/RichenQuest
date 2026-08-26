@@ -169,7 +169,7 @@ app.use('/api/notifications', requireStudent, (req, res) => {
 
 /*  RichenQuest intelligence. Every route derives the student's record id from
  *  the signed session — none of them accept an id from the caller. */
-['home','profile','opportunities','roadmap','report','mentor','request'].forEach(r => {
+['home','profile','profile-score','opportunities','roadmap','report','mentor','request'].forEach(r => {
   app.use(`/api/${r}`, (req, res) => {
     req.url = `/${r}`;
     intelligenceHandler(req, res);

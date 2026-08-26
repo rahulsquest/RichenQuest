@@ -16,6 +16,8 @@ const { invoke, audit } = require('../shared/zoho/engines');
 const session = require('../shared/session');
 const { sendSuccess, sendError } = require('../shared/response');
 const CatalystDataStore = require('../shared/dataStore');
+const codeKitchenScore = require('../shared/codeKitchenScore');
+const { COMPLETENESS_FIELDS } = codeKitchenScore;
 
 /* Raw Zoho errors never reach the browser: they leak internals and mean nothing
  * to a family. The technical detail goes to the server log with a correlation id. */
@@ -111,6 +113,37 @@ module.exports = async function intelligenceHandler(req, res) {
         '/mentor':        () => invoke('mentor', who)
       };
       if (READ[path]) return sendSuccess(res, await READ[path]());
+    }
+
+    /*  GET /profile-score — Code Kitchen Score (profile_strength +
+     *  profile_completeness from codeKitchenScore.js, a faithful port of
+     *  the real studentIntelligence Deluge engine). Identity is `me`,
+     *  derived only from the session above; there is no id parameter here
+     *  for a caller to tamper with, and every field the score depends on
+     *  is engine-owned — nothing in this response can be influenced by
+     *  request input at all, since this route accepts none.
+     *
+     *  Reads the raw fields directly (not through invoke('intelligence',..)
+     *  which returns the Deluge engine's OWN computed profile_strength) so
+     *  this module's local computation can be exercised end-to-end even
+     *  while CRM/AppSail access is unavailable, using exactly the field
+     *  set the live engine would read. When CRM is reachable, this is a
+     *  real Zoho API response, not synthetic data. */
+    if (method === 'GET' && path === '/profile-score') {
+      const zohoOAuth = require('../shared/zoho/oauth');
+      const { EngineError } = require('../shared/zoho/engines');
+      if (!zohoOAuth.isConfigured())
+        throw new EngineError('Zoho is not configured on this server', 'ZOHO_UNCONFIGURED', 503);
+      const fields = [...new Set([...COMPLETENESS_FIELDS, 'Languages_Spoken'])].join(',');
+      const token = await zohoOAuth.getAccessToken();
+      const r = await fetch(
+        `${zohoOAuth.getApiDomain()}/crm/v8/${me.module}/${me.leadId}?fields=${fields}`,
+        { headers: { Authorization: `Zoho-oauthtoken ${token}` } });
+      if (!r.ok) throw new EngineError(`CRM returned ${r.status}`, 'ZOHO_UNAVAILABLE', 503);
+      const j = await r.json().catch(() => null);
+      const record = j && j.data && j.data[0];
+      if (!record) throw new EngineError('CRM record not found', 'ENGINE_EMPTY', 502);
+      return sendSuccess(res, codeKitchenScore.calculate(record));
     }
 
     if (method === 'POST' && path === '/profile') {

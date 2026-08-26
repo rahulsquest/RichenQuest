@@ -16,6 +16,7 @@ import { CounselorCard } from '../../components/ApplicationTracker';
 import { BookingCard } from '../../components/BookingCard';
 import { Card } from '../../components/Card';
 import Button from '../../components/Button';
+import ProfileScoreCard from '../../components/ProfileScoreCard';
 import caseService from '../../services/caseService';
 import bookingService from '../../services/bookingService';
 import documentService from '../../services/documentService';
@@ -147,7 +148,10 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* 3. Main Grid: Counselor + Upcoming Consultation */}
+      {/* 3. Code Kitchen Score */}
+      <ProfileScoreCard />
+
+      {/* 4. Main Grid: Counselor + Upcoming Consultation */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Counselor Card */}
         <div className="lg:col-span-1">
