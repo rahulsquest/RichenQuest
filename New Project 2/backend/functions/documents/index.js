@@ -27,15 +27,19 @@ async function handleDocuments(req, res) {
   const method = req.method;
   const documentId = req.params?.id;
 
-  // GET /api/documents
+  /*  GET /api/documents — scoped to the caller's session only.
+   *
+   *  Confirmed by testing before this fix: requireStudent checks path
+   *  segments and body fields, never req.query, and studentId here came
+   *  straight from the query string — GET /api/documents?studentId=<any
+   *  other student> returned 200 with that student's real documents, and
+   *  GET /api/documents with no query at all returned EVERY student's
+   *  documents unfiltered. A caller-supplied studentId is never honoured
+   *  now, matching how every other route in this codebase derives identity
+   *  from the session, not the request. */
   if (method === 'GET') {
-    const studentId = req.query?.studentId;
-    let docs = [];
-    if (studentId) {
-      docs = documentsTable.find(d => d.studentId === studentId);
-    } else {
-      docs = documentsTable.find();
-    }
+    const studentId = req.student?.student?.studentId;
+    const docs = studentId ? documentsTable.find(d => d.studentId === studentId) : [];
 
     return sendSuccess(res, {
       documents: docs,

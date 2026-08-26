@@ -33,6 +33,22 @@ function identifiersFor(user) {
   [user.userId, user.studentId, user.leadId, user.contactId,
    own && own.studentId, own && own.caseId, own && own.leadId]
     .filter(Boolean).forEach(v => ids.add(String(v)));
+
+  /* Also register this student's own document/booking ids. Without this,
+   * /api/documents/:id and /api/bookings/:id refused the legitimate owner
+   * too — the check above only knows identity ids (user/student/lead/
+   * contact), never resource ids, so a real DOC_/BKG_ id never matched and
+   * was refused exactly like a stranger's would be. Confirmed live: DELETE
+   * on a student's own just-uploaded document returned 403. Only ids
+   * belonging to this student are added, so cross-student access is
+   * unaffected. */
+  const sid = own && own.studentId;
+  if (sid) {
+    CatalystDataStore.getTable('Documents').find(d => d.studentId === sid)
+      .forEach(d => d.documentId && ids.add(String(d.documentId)));
+    CatalystDataStore.getTable('Bookings').find(b => b.studentId === sid)
+      .forEach(b => b.bookingId && ids.add(String(b.bookingId)));
+  }
   return { ids, student: own };
 }
 
