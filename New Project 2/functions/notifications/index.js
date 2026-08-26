@@ -8,19 +8,21 @@ const { sendSuccess, sendError } = require('../shared/response');
 
 const notificationsTable = CatalystDataStore.getTable('Notifications');
 
+/*  Every studentId here comes from the session (req.student), never from
+ *  req.query. Confirmed by testing before this fix, on the same shape as
+ *  the documents.js leak: req.query.studentId let one student read (and,
+ *  worse, mark-all-read) another student's notifications, and omitting it
+ *  entirely returned every student's notifications with no filter. */
 async function handleNotifications(req, res) {
   const method = req.method;
   const path = req.path || '';
-  const studentId = req.query?.studentId;
+  const studentId = req.student?.student?.studentId;
 
   // GET /api/notifications
   if (method === 'GET') {
-    let list = [];
-    if (studentId) {
-      list = notificationsTable.find(n => n.studentId === studentId).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-    } else {
-      list = notificationsTable.find().sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-    }
+    const list = studentId
+      ? notificationsTable.find(n => n.studentId === studentId).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+      : [];
     const unreadCount = list.filter(n => !n.read).length;
 
     return sendSuccess(res, {

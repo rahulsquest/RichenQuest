@@ -48,6 +48,8 @@ function identifiersFor(user) {
       .forEach(d => d.documentId && ids.add(String(d.documentId)));
     CatalystDataStore.getTable('Bookings').find(b => b.studentId === sid)
       .forEach(b => b.bookingId && ids.add(String(b.bookingId)));
+    CatalystDataStore.getTable('Notifications').find(n => n.studentId === sid)
+      .forEach(n => n.notificationId && ids.add(String(n.notificationId)));
   }
   return { ids, student: own };
 }

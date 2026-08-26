@@ -16,15 +16,13 @@ async function handleBookings(req, res) {
   const method = req.method;
   const bookingId = req.params?.id;
 
-  // GET /api/bookings
+  /*  GET /api/bookings — scoped to the session, not the query string.
+   *  Same bypass shape as documents.js and notifications.js, same fix:
+   *  req.query.studentId is never trusted, and omitting it no longer
+   *  returns every student's bookings. */
   if (method === 'GET') {
-    const studentId = req.query?.studentId;
-    let list = [];
-    if (studentId) {
-      list = bookingsTable.find(b => b.studentId === studentId);
-    } else {
-      list = bookingsTable.find();
-    }
+    const studentId = req.student?.student?.studentId;
+    const list = studentId ? bookingsTable.find(b => b.studentId === studentId) : [];
 
     const counselors = counselorsTable.find();
     const today = new Date().toISOString().split('T')[0];
@@ -117,14 +115,24 @@ async function handleBookings(req, res) {
     }, 'Consultation scheduled successfully.', 201);
   }
 
-  // PUT /api/bookings/:id (Reschedule)
+  /*  PUT /api/bookings/:id (Reschedule) — allowlisted, not passed through.
+   *  Same bug shape fixed in students.js: an unfiltered `req.body` let a
+   *  caller rewrite counselorId, status, zohoBookingsId or meetingUrl on
+   *  their own booking. Only what a reschedule actually needs to change is
+   *  accepted; everything else (including bookingId/studentId, already
+   *  covered by requireStudent's identity checks) is dropped. */
   if (method === 'PUT' || method === 'PATCH') {
     const existing = bookingsTable.findOne(b => b.bookingId === bookingId);
     if (!existing) {
       return sendError(res, 'NOT_FOUND', 'Booking not found.', 404);
     }
 
-    const updates = req.body || {};
+    const RESCHEDULE_FIELDS = ['date', 'timeSlot', 'notes'];
+    const body = req.body || {};
+    const updates = {};
+    for (const f of RESCHEDULE_FIELDS) {
+      if (Object.prototype.hasOwnProperty.call(body, f)) updates[f] = body[f];
+    }
     const updated = bookingsTable.update(b => b.bookingId === bookingId, updates);
 
     // Flow notification for reschedule
