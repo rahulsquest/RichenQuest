@@ -176,7 +176,19 @@ app.use('/api/notifications', requireStudent, (req, res) => {
   });
 });
 
-app.use('/api/crm', (req, res) => {
+/*  Confirmed live and unauthenticated before this fix: GET /api/crm/status
+ *  returned integration status plus the last 10 IntegrationEvents (student
+ *  ids, document ids, invoice ids) to anyone, no session required — the
+ *  only route among the student-data endpoints missing requireStudent.
+ *  POST /api/crm/sync/:studentId was also unauthenticated, though it never
+ *  actually worked (req.params.studentId was never populated here, unlike
+ *  every sibling route), which this also fixes. Both are called only from
+ *  the student's own Profile page (zohoService.js), so requireStudent is
+ *  the right gate — and it validates the STU_ id in the URL is the
+ *  caller's own automatically, the same as every other route below. */
+app.use('/api/crm', requireStudent, (req, res) => {
+  const parts = req.url.split('?')[0].split('/').filter(Boolean);
+  if (parts[0] === 'sync' && parts[1]) req.params = { studentId: parts[1] };
   crmHandler(req, res);
 });
 
