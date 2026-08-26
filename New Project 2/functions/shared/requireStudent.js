@@ -81,6 +81,31 @@ function requireStudent(req, res, next) {
     }
   }
 
+  /*  The same check for the REQUEST BODY.
+   *
+   *  The path guard above missed this entirely: POST /api/bookings reads
+   *  studentId from req.body, so student A could book under student B simply
+   *  by naming them in the payload — confirmed by test before this was added.
+   *  An identity in the body is exactly as untrustworthy as one in the URL.
+   *
+   *  A body field naming someone else is refused rather than quietly
+   *  overwritten, so a caller is never told an action succeeded against an
+   *  identity that was silently swapped underneath them. */
+  const IDENTITY_FIELDS = [
+    'studentId', 'student_id', 'leadId', 'lead_id', 'userId', 'user_id',
+    'recordId', 'record_id', 'contactId', 'contact_id', 'customerId'
+  ];
+  const body = req.body || {};
+  for (const f of IDENTITY_FIELDS) {
+    const v = body[f];
+    if (v !== undefined && v !== null && v !== '' && !ids.has(String(v))) {
+      console.warn('[authz] refused body-supplied identity', {
+        by: user.userId, field: f, value: String(v), path: req.url });
+      return sendError(res, 'FORBIDDEN',
+        'You do not have access to that record.', 403);
+    }
+  }
+
   req.student = { user, student, ids: [...ids] };
   return next();
 }
