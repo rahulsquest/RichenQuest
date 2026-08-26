@@ -79,3 +79,28 @@ Also attempted and ruled out:
 
 CLI 1.27.0, authenticated as rahul@richenquest.com, project association
 verified as RichenQuest / 53691000000016002 / Development before every attempt.
+
+## Re-confirmed, same day, after real application fixes landed
+
+`catalyst deploy --only appsail:rq-api -ni` was run once more after today's
+port-binding fix (`c57c83a`: server.js now correctly owns `app.listen()`,
+reads `X_ZOHO_CATALYST_LISTEN_PORT` first, and serves a dependency-free `/`
+liveness route). Identity re-verified first (`project:list` shows
+RichenQuest / 53691000000016002 as the active project).
+
+Result: `DEPLOYMENT SUCCESSFUL`, URL
+`https://rq-api-50043782438.development.catalystappsail.in`. Every route,
+including the dependency-free `/`, answers identically:
+
+    HTTP 503
+    {"status":"failure","data":{"message":"Execution failed. Please check
+    the startup command or port.","error_code":"INTERNAL_SERVER_ERROR"}}
+
+This is the same signature the control test (a bare Node http server, no
+Express, no env vars) already produced above. Since the actual application's
+port/listen logic was independently fixed and verified locally today (15/15
+regression, correct binding under both `PORT` and
+`X_ZOHO_CATALYST_LISTEN_PORT`), and a dependency-free control server fails
+identically, this re-confirms the fault sits at the platform provisioning
+layer, not in application code. No further deploy attempts made — repeating
+an unprovisioned deploy produces no new information.
