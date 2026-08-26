@@ -51,3 +51,31 @@ Serverless/AppSail service is absent from the project API and the AppSail
 console route returns 404.
 
 Please do not make changes to any other project on this organization.
+
+---
+
+## Fresh evidence, 2026-08-26 — the fault is ORG-WIDE, not project-specific
+
+Read-only comparison of both projects on organization 60076829044:
+
+| Project | ID | services | appsail |
+|---|---|---|---|
+| RichenQuest | 53691000000016002 | `["Cloud Scale","Settings"]` | 0 |
+| Project-Rainfall | 53691000000013024 | `undefined` | 0 |
+
+Serverless is absent from BOTH projects, and the second returns no service list
+at all. Whatever is wrong is at the organization/entitlement layer, not with
+the RichenQuest project's own configuration. No write operation was performed
+on Project-Rainfall.
+
+Also attempted and ruled out:
+- `catalyst appsail:add` + `catalyst deploy appsail` — reports DEPLOYMENT
+  SUCCESSFUL and returns a URL, but no service is ever created and the URL
+  answers 503.
+- `catalyst init appsail` — this is local scaffolding that offers example
+  repositories to clone. It does not provision the service entitlement.
+- A dependency-free Node http server deployed as a control failed identically,
+  which rules out the application as a cause.
+
+CLI 1.27.0, authenticated as rahul@richenquest.com, project association
+verified as RichenQuest / 53691000000016002 / Development before every attempt.
