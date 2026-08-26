@@ -203,11 +203,14 @@ app.use('/api/*', (req, res) => {
 });
 
 if (require.main === module) {
-  app.listen(PORT, HOST, () => {
-    console.log(`\n======================================================`);
-    console.log(`  RICHENQUEST CATALYST BACKEND RUNNING ON PORT ${PORT}`);
-    console.log(`  Gateway URL: http://localhost:${PORT}/api/health`);
-    console.log(`======================================================\n`);
+  const CatalystDataStore = require('./shared/dataStore');
+  CatalystDataStore.hydrate().finally(() => {
+    app.listen(PORT, HOST, () => {
+      console.log(`\n======================================================`);
+      console.log(`  RICHENQUEST CATALYST BACKEND RUNNING ON PORT ${PORT}`);
+      console.log(`  Gateway URL: http://localhost:${PORT}/api/health`);
+      console.log(`======================================================\n`);
+    });
   });
 }
 
