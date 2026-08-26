@@ -5,7 +5,6 @@
 
 const CatalystDataStore = require('../shared/dataStore');
 const { sendSuccess, sendError } = require('../shared/response');
-const ZohoClient = require('../shared/zohoClient');
 
 const casesTable = CatalystDataStore.getTable('Cases');
 const studentsTable = CatalystDataStore.getTable('Students');
@@ -37,25 +36,21 @@ async function handleCases(req, res) {
     }, 'Student case roadmap retrieved successfully.');
   }
 
-  // PUT /api/cases/:id
+  /*  PUT/PATCH /api/cases/:id — refused for students, not merely unfiltered.
+   *
+   *  Confirmed by testing before this fix: with no field filtering at all, a
+   *  student's own PATCH request with {"status":"ACCEPTED","stage":"Offer
+   *  Received"} silently rewrote both fields on their own case. Unlike the
+   *  student profile (which has real student-owned fields, fixed separately
+   *  with an allowlist), nothing on a Case record is student-owned — status,
+   *  stage, milestones and counselorId are counselor/CRM-driven state, and
+   *  application status is exactly the kind of field that must never be
+   *  self-reportable. The legitimate write path for this data is the
+   *  webhook handler (webhooks/index.js), authenticated separately, not a
+   *  student's own session. */
   if (method === 'PUT' || method === 'PATCH') {
-    const updates = req.body || {};
-    const existing = casesTable.findOne(c => c.caseId === caseId || c.studentId === caseId);
-
-    if (!existing) {
-      return sendError(res, 'NOT_FOUND', 'Case not found to update.', 404);
-    }
-
-    const updated = casesTable.update(c => c.caseId === existing.caseId, updates);
-
-    ZohoClient.emitFlowEvent('APPLICATION_UPDATED', {
-      caseId: existing.caseId,
-      studentId: existing.studentId,
-      stage: updated.stage,
-      status: updated.status
-    });
-
-    return sendSuccess(res, updated, 'Student case updated successfully.');
+    return sendError(res, 'FORBIDDEN',
+      'Case status and stage are managed by your counselor and cannot be edited directly.', 403);
   }
 
   return sendError(res, 'METHOD_NOT_ALLOWED', 'Method not allowed.', 405);
