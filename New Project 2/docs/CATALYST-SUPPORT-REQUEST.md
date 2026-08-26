@@ -104,3 +104,36 @@ regression, correct binding under both `PORT` and
 identically, this re-confirms the fault sits at the platform provisioning
 layer, not in application code. No further deploy attempts made — repeating
 an unprovisioned deploy produces no new information.
+
+## Diagnostic surface exhausted, same day
+
+Every inspection/diagnostic route this CLI (1.27.0) and the authenticated
+session expose was checked before concluding this is human-only:
+
+- No logs/describe/inspect command exists anywhere in `catalyst help` for a
+  running AppSail service. `apig:status` and `ds:status` are the only
+  status-style commands, and neither applies to AppSail.
+- `catalyst.json`'s appsail block is minimal and correct
+  (name: rq-api, source: backend); `backend/package.json` declares
+  main: server.js and scripts.start: node server.js correctly; no engines
+  field is declared anywhere, which is not the cause either (see the
+  control-server test above).
+- `catalyst iac:import` was inspected and ruled out: its own --help states
+  it creates a NEW project from an IaC package. There is no
+  apply-to-existing-project variant, so it cannot add resources to
+  RichenQuest without violating the no-new-project rule. Not attempted.
+- `catalyst apig:status` showed API Gateway disabled on this project, a
+  genuinely new signal. `catalyst apig:enable` was run (identity
+  re-verified first: RichenQuest / 53691000000016002) and succeeded, but
+  the AppSail URL was re-tested immediately after and returned the
+  identical 503, ruling this out. API Gateway was left enabled (a
+  supported, reversible project setting; no other project state touched).
+- No stored Zoho credentials were found via any path available in this
+  session (no .env, no matching shell environment variables); macOS
+  keychain access was attempted and blocked by the harness's own
+  permission system before any lookup ran.
+
+Nothing further is discoverable or actionable from this environment. The
+control-server result (a dependency-free Node process failing identically)
+remains the decisive evidence: this is a platform entitlement/provisioning
+fault, and only Zoho support or console-level account action can resolve it.
