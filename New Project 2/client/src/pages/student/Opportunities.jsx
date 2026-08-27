@@ -16,7 +16,7 @@ import intelligenceService from '../../services/intelligenceService';
 
 /* Two bars, never one. */
 function ScoreBar({ label, value, meaning, tone }) {
-  const pct = Math.max(0, Math.min(100, Number(value) || 0));
+  const pct = Math.round(Math.max(0, Math.min(100, Number(value) || 0)));
   return (
     <div className="flex-1 min-w-[140px]">
       <div className="flex items-baseline justify-between mb-1">
@@ -66,6 +66,12 @@ function OpportunityCard({ o }) {
   const missing = o.missing_requirements || [];
   const strengths = o.student_strengths || [];
   const unscored = o.unscored_dimensions || [];
+  /* score_breakdown is the engine's own per-dimension FIT lines (Financial
+   * fit / Country / Domain / English / Level, each "label X/weight —
+   * reason"). These are the real, current dimensions of the matching
+   * engine — shown verbatim rather than re-labelled into a different set
+   * of dimension names, and never split into a second set of numbers. */
+  const scoreBreakdown = o.score_breakdown || [];
   const elig = ELIGIBILITY_COPY[o.eligibility_status] || null;
   /* tuition/living cost/verification are nested under provenance, not
    * top-level fields. */
@@ -95,10 +101,28 @@ function OpportunityCard({ o }) {
       </div>
 
       {/* Deliberately side by side and never combined. */}
-      <div className="flex flex-wrap gap-5 mb-4">
+      <div className="flex flex-wrap gap-5 mb-2">
         <ScoreBar label="Fit" value={o.match_score} meaning={o.score_meaning} tone="bg-blue-600" />
         <ScoreBar label="Evidence confidence" value={o.confidence} meaning={o.confidence_meaning} tone="bg-emerald-600" />
       </div>
+
+      {/* The FIT number broken into the engine's real dimensions
+       * (Financial fit, Country, Domain, English, Level) — not a second
+       * score, the same one explained. A dimension the engine could not
+       * verify says so explicitly ("not scored — ...") rather than
+       * counting as a mismatch. */}
+      {scoreBreakdown.length > 0 && (
+        <details className="mb-4">
+          <summary className="cursor-pointer text-[11px] font-bold uppercase tracking-wider text-slate-500">
+            How the Fit score breaks down
+          </summary>
+          <ul className="mt-1.5 space-y-0.5">
+            {scoreBreakdown.map((line, i) => (
+              <li key={i} className="text-sm text-slate-600">{String(line)}</li>
+            ))}
+          </ul>
+        </details>
+      )}
 
       {o.rank_reason && (
         <p className="text-sm text-slate-600 bg-slate-50 rounded-lg px-3 py-2 mb-4">
