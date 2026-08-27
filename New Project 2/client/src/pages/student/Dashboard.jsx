@@ -7,8 +7,7 @@ import {
   Building2,
   AlertCircle,
   ArrowRight,
-  UploadCloud,
-  GraduationCap
+  UploadCloud
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { ProgressBar, StatusBadge } from '../../components/StatusBadge';

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { User, GraduationCap, Globe, Award, ShieldCheck, Check, Save, RefreshCw } from 'lucide-react';
+import { Save, RefreshCw } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { Input, Select } from '../../components/Input';
