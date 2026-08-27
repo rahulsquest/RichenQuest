@@ -193,7 +193,21 @@ async function handleAuth(req, res) {
       actionUrl: '/profile'
     });
 
-    // 1. Sync Contact to Zoho CRM (avoiding duplicates)
+    /*  1. Sync Contact to Zoho CRM (avoiding duplicates).
+     *
+     *  BUG FIXED HERE, found by tracing the handoff end to end.
+     *  On success this only ever recorded zohoCrmSyncStatus on the Students
+     *  table. Every route that actually needs the CRM link — /profile-score,
+     *  /opportunities, /roadmap, /report, /mentor, /profile, /request, and
+     *  payments' invoice path — reads leadId (and crmModule) from the USERS
+     *  table via identify()/requireStudent.js, which this callback never
+     *  touched. Users never gets a leadId field written anywhere else in
+     *  this codebase (confirmed by tracing every write of it). Result:
+     *  those routes returned "not yet linked to a student file" forever,
+     *  for every student, independent of whether CRM credentials/sync were
+     *  actually working — a structural gap, not a credentials problem.
+     *  upsertContact() writes to Contacts (crm/v3/Contacts), not Leads, so
+     *  crmModule is set to match what was actually synced. */
     ZohoClient.syncContactToCrm(newStudent).then(crmRes => {
       if (crmRes?.crmContactId) {
         studentsTable.update(s => s.studentId === studentId, {
@@ -202,6 +216,10 @@ async function handleAuth(req, res) {
             crmContactId: crmRes.crmContactId,
             lastSyncTimestamp: new Date().toISOString()
           }
+        });
+        usersTable.update(u => u.userId === userId, {
+          leadId: crmRes.crmContactId,
+          crmModule: 'Contacts'
         });
       }
     }).catch(err => console.error('[Auth CRM Sync Error]:', err.message));

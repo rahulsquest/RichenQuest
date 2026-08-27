@@ -150,7 +150,10 @@ module.exports = async function intelligenceHandler(req, res) {
       const { clean, rejected } = pendingWrite;   // validated above
       const zohoOAuth = require('../shared/zoho/oauth');
       const token = await zohoOAuth.getAccessToken();
-      const r = await fetch(`${zohoOAuth.getApiDomain()}/crm/v8/Leads/${me.leadId}`, {
+      /* module, not a hardcoded 'Leads' — a self-service signup links to
+       * Contacts (see auth/index.js), and writing to the wrong module for
+       * this student's real record would silently fail every save. */
+      const r = await fetch(`${zohoOAuth.getApiDomain()}/crm/v8/${me.module}/${me.leadId}`, {
         method: 'PATCH',
         headers: { Authorization: `Zoho-oauthtoken ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ data: [clean] })
