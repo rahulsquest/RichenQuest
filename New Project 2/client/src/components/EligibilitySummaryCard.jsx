@@ -15,6 +15,8 @@ export default function EligibilitySummaryCard() {
   const navigate = useNavigate();
   const [state, setState] = useState('loading');
   const [counts, setCounts] = useState(null);
+  const [rankableCount, setRankableCount] = useState(0);
+  const [topMatch, setTopMatch] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -29,6 +31,13 @@ export default function EligibilitySummaryCard() {
           if (k && k in tally) tally[k] += 1; else tally.UNKNOWN += 1;
         });
         setCounts(tally);
+        /* "ranked" IS the rankable set by construction — everything the
+         * engine could not rank is already separated into not_rankable. */
+        setRankableCount(ranked.length);
+        /* ranked[0] is the engine's own top pick — ranking_factors is fit,
+         * then confidence, then data completeness, in that order. Not a
+         * new "best match" computation, just reading the existing order. */
+        setTopMatch(ranked[0] || null);
         setState('ready');
       })
       .catch(() => { if (!cancelled) setState('unavailable'); });
@@ -66,6 +75,9 @@ export default function EligibilitySummaryCard() {
 
   return (
     <Card title="Eligibility" padding="p-6">
+      <p className="text-xs text-slate-500 mb-3">
+        <strong className="text-slate-800">{rankableCount}</strong> opportunit{rankableCount === 1 ? 'y' : 'ies'} could be scored with verified data
+      </p>
       <ul className="space-y-2.5">
         {rows.map(r => (
           <li key={r.key} className="flex items-center gap-2.5">
@@ -76,6 +88,15 @@ export default function EligibilitySummaryCard() {
           </li>
         ))}
       </ul>
+      {topMatch && (
+        <div className="mt-4 pt-4 border-t border-slate-100">
+          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Strongest verified match</span>
+          <p className="text-sm text-slate-800 font-semibold mt-0.5">{topMatch.opportunity}</p>
+          <p className="text-xs text-slate-500">
+            Fit {topMatch.match_score}/100 · Evidence confidence {topMatch.confidence}/100
+          </p>
+        </div>
+      )}
       <button
         onClick={() => navigate('/opportunities')}
         className="mt-4 text-xs font-semibold text-indigo-600 hover:underline inline-flex items-center gap-1"
