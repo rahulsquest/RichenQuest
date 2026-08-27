@@ -19,5 +19,22 @@ done
 chk "cross-student A->B" "$(curl -s -o /dev/null -w '%{http_code}' -m 15 -H "Authorization: Bearer $TA" "$B/api/students/$UB")" "403"
 chk "own record A->A"    "$(curl -s -o /dev/null -w '%{http_code}' -m 15 -H "Authorization: Bearer $TA" "$B/api/students/$UA")" "200"
 chk "CORS evil blocked"  "$(curl -s -o /dev/null -D - -m 15 -H 'Origin: https://evil.example.com' "$B/api/health" | grep -ci 'access-control-allow-origin')" "0"
+
+# --- Code Kitchen profile-score: session-only, zero client-controllable input ---
+chk "unauth /api/profile-score" "$(curl -s -o /dev/null -w '%{http_code}' -m 15 "$B/api/profile-score")" "401"
+chk "own profile-score, unlinked account -> honest refusal" \
+  "$(curl -s -o /dev/null -w '%{http_code}' -m 15 -H "Authorization: Bearer $TA" "$B/api/profile-score")" "409"
+chk "forged token on profile-score" \
+  "$(curl -s -o /dev/null -w '%{http_code}' -m 15 -H 'Authorization: Bearer not.a.real.token' "$B/api/profile-score")" "401"
+TAMPERED="${TA%?}X"
+chk "tampered token on profile-score" \
+  "$(curl -s -o /dev/null -w '%{http_code}' -m 15 -H "Authorization: Bearer $TAMPERED" "$B/api/profile-score")" "401"
+# score/eligibility/rank/match_score/confidence have no read path anywhere in
+# this route (GET, no body, identity from session only) -- injecting them via
+# query string must have zero effect: same status as the plain request above.
+chk "client score/eligibility/rank/match_score injection ignored" \
+  "$(curl -s -o /dev/null -w '%{http_code}' -m 15 -H "Authorization: Bearer $TA" \
+     "$B/api/profile-score?score=100&profile_strength=100&eligibility=ELIGIBLE&eligibility_status=ELIGIBLE&rank=1&recommendation_rank=1&match_score=100&confidence=100")" "409"
+
 echo; echo "RESULT: $PASS passed, $FAIL failed"
 [ "$FAIL" -eq 0 ] || exit 1
