@@ -62,7 +62,7 @@ export default function Contact() {
             <div className="space-y-3 text-xs text-slate-600">
               <div className="flex items-start gap-3">
                 <MapPin className="w-4 h-4 text-indigo-600 shrink-0 mt-0.5" />
-                <span>124 City Road, London, EC1V 2NX, United Kingdom</span>
+                <span>Boring Road, Patna, Bihar, India</span>
               </div>
               <div className="flex items-center gap-3">
                 <Mail className="w-4 h-4 text-indigo-600 shrink-0" />
@@ -74,7 +74,7 @@ export default function Contact() {
               </div>
               <div className="flex items-center gap-3">
                 <Clock className="w-4 h-4 text-indigo-600 shrink-0" />
-                <span>Mon – Fri: 09:00 – 18:00 BST</span>
+                <span>Mon – Fri: 09:00 – 18:00 IST</span>
               </div>
             </div>
           </div>

@@ -70,9 +70,9 @@ export default function Login() {
             <Compass className="w-6 h-6" />
           </div>
         </Link>
-        <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight font-display">
+        <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight font-display">
           Student Portal Sign In
-        </h2>
+        </h1>
         <p className="text-xs text-slate-500">
           Access your admissions case roadmap, verified documents, and consultation bookings.
         </p>

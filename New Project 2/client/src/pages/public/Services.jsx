@@ -42,7 +42,7 @@ export default function Services() {
       title: 'Student Visa Filing & Mock Interviews',
       description: 'Comprehensive visa petition preparation including CAS/I-20 requests, financial documentation audits, biometrics scheduling, and mock embassy interview drills.',
       deliverables: [
-        'UK Tier 4, US F-1, Canadian Study Permit expertise',
+        'UK Student visa, US F-1, Canadian Study Permit expertise',
         'Financial affidavit & bank verification checklists',
         '1-on-1 counselor mock interview preparation'
       ]
@@ -107,7 +107,7 @@ export default function Services() {
                   className="w-full justify-between text-xs"
                   onClick={() => navigate('/inquiry')}
                 >
-                  <span>Inquire for This Service</span>
+                  <span>Check My Fit</span>
                   <ArrowRight className="w-3.5 h-3.5" />
                 </Button>
               </div>
@@ -121,11 +121,14 @@ export default function Services() {
         <div className="bg-indigo-900 text-white rounded-2xl p-8 sm:p-10 space-y-4 shadow-xl">
           <h3 className="text-2xl font-extrabold">Ready to Begin Your Admissions Journey?</h3>
           <p className="text-xs sm:text-sm text-indigo-200 max-w-lg mx-auto">
-            Submit your initial inquiry or book an appointment with our counseling team today.
+            Check your fit or book an appointment with our counselling team today.
           </p>
-          <div className="pt-2">
+          <div className="pt-2 flex flex-wrap items-center justify-center gap-3">
             <Button size="lg" variant="primary" className="bg-indigo-500 hover:bg-indigo-600" onClick={() => navigate('/inquiry')}>
-              Submit Study Inquiry
+              Check My Fit
+            </Button>
+            <Button size="lg" variant="secondary" onClick={() => navigate('/contact')}>
+              Talk to a Counsellor
             </Button>
           </div>
         </div>

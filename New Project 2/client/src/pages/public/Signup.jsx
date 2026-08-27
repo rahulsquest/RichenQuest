@@ -59,9 +59,9 @@ export default function Signup() {
             <Compass className="w-6 h-6" />
           </div>
         </Link>
-        <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight font-display">
+        <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight font-display">
           Create Your Student Account
-        </h2>
+        </h1>
         <p className="text-xs text-slate-500">
           Get assigned to a dedicated counselor and begin your admissions journey.
         </p>

@@ -101,7 +101,7 @@ export default function Navbar() {
                   variant="primary"
                   onClick={() => navigate('/inquiry')}
                 >
-                  Apply Now
+                  Check My Fit
                 </Button>
               </div>
             )}
@@ -180,7 +180,7 @@ export default function Navbar() {
                     setMobileMenuOpen(false);
                   }}
                 >
-                  Submit Study Inquiry
+                  Check My Fit
                 </Button>
               </>
             )}

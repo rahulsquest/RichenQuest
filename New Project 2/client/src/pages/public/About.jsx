@@ -1,7 +1,8 @@
 import React from 'react';
-import { Compass, ShieldCheck, Globe, Users, Award, CheckCircle, ArrowRight } from 'lucide-react';
+import { Compass, ShieldCheck, ArrowRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import Button from '../../components/Button';
+import { TARGET_COUNTRIES } from '../../constants/entities';
 
 export default function About() {
   const navigate = useNavigate();
@@ -46,52 +47,41 @@ export default function About() {
         </div>
       </section>
 
-      {/* Global Presence */}
+      {/* Where We Operate */}
       <section className="bg-slate-900 text-white py-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-2xl mx-auto mb-10">
             <h2 className="text-xs font-bold uppercase tracking-wider text-indigo-400 mb-2">
-              Global Network
+              Where We Operate
             </h2>
             <p className="text-2xl sm:text-3xl font-extrabold text-white">
-              Supporting University Placements Worldwide
+              India-Based, Globally Focused
             </p>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            <div className="bg-slate-800/80 p-6 rounded-2xl border border-slate-700 space-y-2">
-              <h4 className="text-base font-bold text-white">United Kingdom</h4>
-              <p className="text-xs text-slate-400">London Advisory Hub</p>
-              <p className="text-xs text-slate-300 pt-2">Russell Group, Post-Study Work Visa (PSW), and Tier 4 CAS processing.</p>
-            </div>
-            <div className="bg-slate-800/80 p-6 rounded-2xl border border-slate-700 space-y-2">
-              <h4 className="text-base font-bold text-white">North America</h4>
-              <p className="text-xs text-slate-400">US & Canada Applications</p>
-              <p className="text-xs text-slate-300 pt-2">STEM OPT programs, F-1 Visa preparation, and Canadian Study Permits.</p>
-            </div>
-            <div className="bg-slate-800/80 p-6 rounded-2xl border border-slate-700 space-y-2">
-              <h4 className="text-base font-bold text-white">European Union</h4>
-              <p className="text-xs text-slate-400">Germany, Ireland & Netherlands</p>
-              <p className="text-xs text-slate-300 pt-2">English-taught Master's degrees and low-tuition public universities.</p>
-            </div>
-            <div className="bg-slate-800/80 p-6 rounded-2xl border border-slate-700 space-y-2">
-              <h4 className="text-base font-bold text-white">Australia & NZ</h4>
-              <p className="text-xs text-slate-400">Group of Eight Placements</p>
-              <p className="text-xs text-slate-300 pt-2">Fast-track admission assessments and Subclass 500 Visa support.</p>
-            </div>
+          <div className="max-w-3xl mx-auto bg-slate-800/80 p-8 rounded-2xl border border-slate-700 text-center space-y-4">
+            <p className="text-sm text-slate-300 leading-relaxed">
+              RichenQuest is built and run from India. The platform supports applications across {TARGET_COUNTRIES.length} destination countries — from the United Kingdom and Europe to North America, Australia, and beyond — all coordinated through one India-based counselling desk.
+            </p>
+            <p className="text-xs text-slate-400 leading-relaxed">
+              We don't claim offices we don't have. Every conversation with our team happens directly with our India-based counsellors — by video call, phone, email, or WhatsApp.
+            </p>
           </div>
         </div>
       </section>
 
       {/* CTA */}
       <section className="max-w-4xl mx-auto px-4 text-center space-y-4">
-        <h3 className="text-2xl font-extrabold text-slate-900">Speak Directly with a Senior Counselor</h3>
+        <h3 className="text-2xl font-extrabold text-slate-900">Speak Directly with a Senior Counsellor</h3>
         <p className="text-xs text-slate-500 max-w-md mx-auto">
-          Submit your profile details or request an initial consultation session to explore your global study options.
+          Check your fit or request an initial consultation session to explore your global study options.
         </p>
-        <div className="pt-2">
+        <div className="pt-2 flex flex-wrap items-center justify-center gap-3">
           <Button size="lg" variant="primary" onClick={() => navigate('/inquiry')}>
-            Start Your Inquiry <ArrowRight className="w-4 h-4 ml-1" />
+            Check My Fit <ArrowRight className="w-4 h-4 ml-1" />
+          </Button>
+          <Button size="lg" variant="secondary" onClick={() => navigate('/contact')}>
+            Talk to a Counsellor
           </Button>
         </div>
       </section>

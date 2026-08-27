@@ -59,7 +59,7 @@ export default function HowItWorks() {
     {
       step: '9',
       title: 'Student Visa Filing & CAS Request',
-      description: 'Complete petition preparation for your Tier 4 / F-1 / Student visa, including bank solvency checks and mock embassy interview sessions.',
+      description: 'Complete petition preparation for your UK Student visa, US F-1, or other destination-specific visa, including bank solvency checks and mock embassy interview sessions.',
       icon: ShieldCheck
     },
     {
@@ -75,13 +75,13 @@ export default function HowItWorks() {
       {/* Header */}
       <section className="max-w-4xl mx-auto px-4 text-center space-y-4">
         <span className="text-xs font-bold uppercase tracking-wider text-indigo-600 bg-indigo-50 px-3 py-1 rounded-full border border-indigo-100">
-          The RichenQuest Process
+          From Uncertainty to a Clear Next Step
         </span>
         <h1 className="text-3xl sm:text-5xl font-extrabold text-slate-900 tracking-tight font-display">
           How Your Admissions Journey Works
         </h1>
         <p className="text-base text-slate-600 leading-relaxed max-w-2xl mx-auto">
-          We break down what feels like a complicated maze into 10 structured, predictable steps backed by dedicated counselor support.
+          RichenQuest combines profile intelligence, opportunity matching, and verification with real counsellor guidance — broken down into 10 structured, tracked steps.
         </p>
       </section>
 
@@ -113,11 +113,14 @@ export default function HowItWorks() {
         <div className="bg-slate-900 text-white rounded-2xl p-8 sm:p-10 space-y-4">
           <h3 className="text-2xl font-extrabold">Ready to Begin Step 1?</h3>
           <p className="text-xs sm:text-sm text-slate-300 max-w-md mx-auto">
-            Submit your initial study inquiry to trigger your profile audit and counselor assignment.
+            Check your fit to trigger your profile audit and counsellor assignment.
           </p>
-          <div className="pt-2">
+          <div className="pt-2 flex flex-wrap items-center justify-center gap-3">
             <Button size="lg" variant="primary" onClick={() => navigate('/inquiry')}>
-              Submit Your Inquiry <ArrowRight className="w-4 h-4 ml-1" />
+              Check My Fit <ArrowRight className="w-4 h-4 ml-1" />
+            </Button>
+            <Button size="lg" variant="secondary" onClick={() => navigate('/contact')}>
+              Talk to a Counsellor
             </Button>
           </div>
         </div>

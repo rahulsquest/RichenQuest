@@ -19,11 +19,11 @@ export default function Footer() {
               </span>
             </div>
             <p className="text-xs text-slate-400 leading-relaxed max-w-sm">
-              RichenQuest empowers ambitious students with end-to-end guidance for premier university admissions, scholarship strategies, and visa processing across the UK, Europe, North America, and Australia.
+              RichenQuest helps ambitious students understand their profile, match with real study-abroad opportunities, and prepare verified, counsellor-guided applications — from an India-based team.
             </p>
             <div className="flex items-center gap-2 pt-2 text-xs text-slate-300">
               <Shield className="w-4 h-4 text-emerald-400 shrink-0" />
-              <span>Zoho Catalyst Protected Architecture</span>
+              <span>Privacy-conscious design · Consent-based data handling</span>
             </div>
           </div>
 
@@ -37,7 +37,7 @@ export default function Footer() {
               <li><Link to="/services" className="hover:text-white transition-colors">Admissions Services</Link></li>
               <li><Link to="/how-it-works" className="hover:text-white transition-colors">How It Works</Link></li>
               <li><Link to="/faq" className="hover:text-white transition-colors">Frequently Asked Questions</Link></li>
-              <li><Link to="/contact" className="hover:text-white transition-colors">Global Offices</Link></li>
+              <li><Link to="/contact" className="hover:text-white transition-colors">Contact Us</Link></li>
             </ul>
           </div>
 
@@ -47,7 +47,7 @@ export default function Footer() {
               Student Hub
             </h4>
             <ul className="space-y-2.5 text-xs">
-              <li><Link to="/inquiry" className="hover:text-white transition-colors">Submit Study Inquiry</Link></li>
+              <li><Link to="/inquiry" className="hover:text-white transition-colors">Check My Fit</Link></li>
               <li><Link to="/login" className="hover:text-white transition-colors">Student Portal Login</Link></li>
               <li><Link to="/signup" className="hover:text-white transition-colors">Create Student Account</Link></li>
               <li><Link to="/consultation" className="hover:text-white transition-colors">Book 1-on-1 Consultation</Link></li>
@@ -63,7 +63,7 @@ export default function Footer() {
             <ul className="space-y-3 text-xs text-slate-400">
               <li className="flex items-start gap-2.5">
                 <MapPin className="w-4 h-4 text-indigo-400 shrink-0 mt-0.5" />
-                <span>124 City Road, London, EC1V 2NX, United Kingdom</span>
+                <span>Boring Road, Patna, Bihar, India</span>
               </li>
               <li className="flex items-center gap-2.5">
                 <Mail className="w-4 h-4 text-indigo-400 shrink-0" />
@@ -84,7 +84,7 @@ export default function Footer() {
         </div>
 
         <div className="mt-12 pt-8 border-t border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500">
-          <p>© {new Date().getFullYear()} RichenQuest Education Ltd. All rights reserved.</p>
+          <p>© {new Date().getFullYear()} RichenQuest. All rights reserved.</p>
           <div className="flex items-center gap-6">
             <span>Powered by Zoho Ecosystem</span>
             <span>•</span>
