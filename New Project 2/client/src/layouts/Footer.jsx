@@ -23,7 +23,7 @@ export default function Footer() {
             </p>
             <div className="flex items-center gap-2 pt-2 text-xs text-slate-300">
               <Shield className="w-4 h-4 text-emerald-400 shrink-0" />
-              <span>Privacy-conscious design · Consent-based data handling</span>
+              <span>Privacy-conscious design</span>
             </div>
           </div>
 
