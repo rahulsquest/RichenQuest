@@ -20,7 +20,7 @@ const intelligenceHandler = require('./intelligence');
 const requireStudent = require('./shared/requireStudent');
 const webhooksHandler = require('./webhooks');
 const ZohoClient = require('./shared/zohoClient');
-const { sendSuccess } = require('./shared/response');
+const { sendSuccess, sendError } = require('./shared/response');
 
 const app = express();
 /*  Port resolution across every environment this app runs in.
@@ -196,10 +196,34 @@ app.use('/api/webhooks/zoho', (req, res) => {
   webhooksHandler(req, res);
 });
 
-// Zoho Flow Generic Event Dispatcher
+/*  Front-end analytics beacon. This route must stay unauthenticated — a page
+ *  view from a logged-out visitor on the public site is the main thing it
+ *  records (PublicLayout calls it on every route change).
+ *
+ *  It previously forwarded ANY caller-supplied event name straight to
+ *  ZohoClient.emitFlowEvent, and flow.js routes by name prefix: LEAD_*,
+ *  STUDENT_*, BOOKING_*, DOCUMENT_* and PAYMENT_* each reach a real Zoho Flow
+ *  automation webhook. An anonymous request to POST /api/events with
+ *  {"event":"PAYMENT_RECEIVED", ...} would therefore inject attacker-chosen
+ *  data into the payment automation — and every call also wrote an unbounded
+ *  IntegrationEvents row. Harmless only while the Flow URLs are unset; live
+ *  the moment production credentials are supplied.
+ *
+ *  The allowlist is the complete set of events the client actually emits
+ *  (analyticsService.js: pageView + the two auth events). Anything else is
+ *  refused rather than forwarded, so a business event can only ever be
+ *  emitted by the server-side handler that genuinely performed the action. */
+const PUBLIC_ANALYTICS_EVENTS = new Set([
+  'PAGE_VIEW', 'LOGIN_COMPLETED', 'SIGNUP_COMPLETED'
+]);
+
 app.post('/api/events', async (req, res) => {
   const { event, data } = req.body || {};
-  const result = await ZohoClient.emitFlowEvent(event || 'GENERIC_EVENT', data || {});
+  if (!PUBLIC_ANALYTICS_EVENTS.has(String(event || ''))) {
+    return sendError(res, 'UNKNOWN_EVENT',
+      'That event type is not accepted here.', 400);
+  }
+  const result = await ZohoClient.emitFlowEvent(event, data || {});
   return sendSuccess(res, result, 'Event emitted to Zoho Flow boundary');
 });
 

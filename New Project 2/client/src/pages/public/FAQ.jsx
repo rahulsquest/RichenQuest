@@ -8,8 +8,8 @@ export default function FAQ() {
   const faqs = [
     {
       category: 'Admissions & Shortlisting',
-      question: 'How does RichenQuest select target universities for me?',
-      answer: 'Our senior counselors conduct a rigorous profile evaluation assessing your undergraduate GPA, degree subject prerequisites, standardized test scores (GRE/GMAT/IELTS), and post-study career goals. We categorize shortlisted institutions into Dream, Target, and Safe tiers to maximize acceptance rates.'
+      question: 'How does RichenQuest match opportunities to my profile?',
+      answer: 'Every opportunity is first checked against five fields — tuition, living cost, application deadline, source URL and verification date. Only opportunities where all five are confirmed against an authoritative source are ranked for you. Your profile is then scored on financial fit, country, subject domain, English requirement and study level, and a counsellor reviews the result before it reaches you. The Match Score describes how well an opportunity fits you — it is not a probability of admission, scholarship or visa outcome, and where information is missing we score on fewer points rather than guess.'
     },
     {
       category: 'Admissions & Shortlisting',
