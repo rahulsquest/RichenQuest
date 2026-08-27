@@ -68,6 +68,12 @@ async function handleBookings(req, res) {
       notes
     });
 
+    /* Only a real Zoho Bookings appointment gets a meeting link. When the
+     * upstream sync is unconfigured or fails, fabricating a meet.zoho.com URL
+     * gave the student a link with no meeting behind it — the request is
+     * still logged and flowed to a counselor below, but the response must
+     * not claim a video link exists until one genuinely does. */
+    const zohoConfirmed = zohoBookingResult?.status === 'BOOKED';
     const newBooking = bookingsTable.insert({
       bookingId: newBookingId,
       studentId,
@@ -77,8 +83,8 @@ async function handleBookings(req, res) {
       date,
       timeSlot,
       meetingType: 'Virtual Video Consultation',
-      meetingUrl: zohoBookingResult?.appointmentUrl || `https://meet.zoho.com/richenquest/${newBookingId.toLowerCase()}`,
-      status: 'CONFIRMED',
+      meetingUrl: zohoConfirmed ? zohoBookingResult.appointmentUrl : null,
+      status: zohoConfirmed ? 'CONFIRMED' : 'PENDING_CONFIRMATION',
       notes: notes || '',
       zohoBookingsId: zohoBookingResult?.zohoBookingsId || null
     });
@@ -87,9 +93,11 @@ async function handleBookings(req, res) {
     notificationsTable.insert({
       notificationId: `NTF_${Date.now()}`,
       studentId,
-      type: 'BOOKING_CONFIRMED',
-      title: 'Consultation Confirmed',
-      message: `Your session for "${consultationType}" with ${counselor?.name || 'Admissions Counselor'} is scheduled for ${date} at ${timeSlot}.`,
+      type: zohoConfirmed ? 'BOOKING_CONFIRMED' : 'BOOKING_PENDING',
+      title: zohoConfirmed ? 'Consultation Confirmed' : 'Consultation Requested',
+      message: zohoConfirmed
+        ? `Your session for "${consultationType}" with ${counselor?.name || 'Admissions Counselor'} is scheduled for ${date} at ${timeSlot}.`
+        : `Your request for "${consultationType}" with ${counselor?.name || 'Admissions Counselor'} on ${date} at ${timeSlot} has been received. We'll confirm the meeting link shortly.`,
       read: false,
       createdAt: new Date().toISOString(),
       actionUrl: '/bookings'
@@ -112,7 +120,9 @@ async function handleBookings(req, res) {
     return sendSuccess(res, {
       booking: newBooking,
       zohoSync: zohoBookingResult
-    }, 'Consultation scheduled successfully.', 201);
+    }, zohoConfirmed
+      ? 'Consultation scheduled successfully.'
+      : 'Consultation request received. A counselor will confirm your meeting link shortly.', 201);
   }
 
   /*  PUT /api/bookings/:id (Reschedule) — allowlisted, not passed through.

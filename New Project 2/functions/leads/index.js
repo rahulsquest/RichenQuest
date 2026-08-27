@@ -82,12 +82,17 @@ async function handleLeads(req, res) {
 
   /*  GET is staff-only. POST above is the PUBLIC website contact form and must
    *  stay open, but the listing below calls leadsTable.find() with no filter,
-   *  so an unauthenticated GET returned every lead in the system. It read as
-   *  harmless only because the local store happens to be empty. */
+   *  so any authenticated caller — not just staff — could previously read
+   *  every lead's name/email/phone/message. Every session issued today has
+   *  role 'student' (see auth/index.js); this checks role rather than just
+   *  presence of a session, so it stays correct once a staff role exists. */
   if (method === 'GET') {
     const sess = require('../shared/session').fromRequest(req);
     if (!sess) {
       return sendError(res, 'UNAUTHORIZED', 'Please sign in to continue.', 401);
+    }
+    if (sess.role !== 'staff') {
+      return sendError(res, 'FORBIDDEN', 'You do not have permission to view this.', 403);
     }
     const leadId = req.params?.id || path.replace('/', '');
     if (!leadId) {
