@@ -84,7 +84,7 @@ export default function Footer() {
         </div>
 
         <div className="mt-12 pt-8 border-t border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500">
-          <p>© {new Date().getFullYear()} RichenQuest. All rights reserved.</p>
+          <p>© {new Date().getFullYear()} RichenQuest Private Limited. All rights reserved.</p>
           <div className="flex items-center gap-6">
             <span>Powered by Zoho Ecosystem</span>
             <span>•</span>
