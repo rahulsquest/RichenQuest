@@ -17,6 +17,8 @@ import { BookingCard } from '../../components/BookingCard';
 import { Card } from '../../components/Card';
 import Button from '../../components/Button';
 import ProfileScoreCard from '../../components/ProfileScoreCard';
+import EligibilitySummaryCard from '../../components/EligibilitySummaryCard';
+import NextActionsCard from '../../components/NextActionsCard';
 import caseService from '../../services/caseService';
 import bookingService from '../../services/bookingService';
 import documentService from '../../services/documentService';
@@ -150,6 +152,14 @@ export default function Dashboard() {
 
       {/* 3. Code Kitchen Score */}
       <ProfileScoreCard />
+
+      {/* 3b. Eligibility summary (real matchOpportunities data, aggregated
+       * only — never a new eligibility computation) + next roadmap actions
+       * (real studentRoadmap data). */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <EligibilitySummaryCard />
+        <NextActionsCard />
+      </div>
 
       {/* 4. Main Grid: Counselor + Upcoming Consultation */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">

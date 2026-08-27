@@ -8,6 +8,7 @@ import { Card } from '../../components/Card';
 import { ZohoSyncBadge } from '../../components/FileUpload';
 import studentService from '../../services/studentService';
 import zohoService from '../../services/zohoService';
+import ProfileScoreCard from '../../components/ProfileScoreCard';
 import { TARGET_COUNTRIES, DEGREE_LEVELS } from '../../constants/entities';
 
 export default function Profile() {
@@ -123,6 +124,8 @@ export default function Profile() {
           </Button>
         </div> */}
       </div>
+
+      <ProfileScoreCard />
 
       <form onSubmit={handleSave} className="space-y-6">
         {/* Personal Details */}

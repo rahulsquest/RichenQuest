@@ -235,6 +235,23 @@ class CatalystDataStore {
   }
 
   /**
+   * Honest persistence reporting for /api/health — never claim durable
+   * storage that isn't actually there. PERSISTENT only once the table's
+   * existence probe in catalystTable() has actually succeeded; everything
+   * else (including "not checked yet") reports IN_MEMORY_FALLBACK, because
+   * that is the store actually serving reads/writes right now.
+   */
+  static getStorageMode(tableName) {
+    return _tableAvailable[tableName] === true ? 'PERSISTENT' : 'IN_MEMORY_FALLBACK';
+  }
+
+  static getStorageReport() {
+    const report = {};
+    for (const name of TABLE_NAMES) report[name] = CatalystDataStore.getStorageMode(name);
+    return report;
+  }
+
+  /**
    * Helper to hash passwords using standard SHA-256 with salt
    */
   static hashPassword(password, salt = 'richenquest_salt') {
