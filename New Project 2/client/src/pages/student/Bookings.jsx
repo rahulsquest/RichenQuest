@@ -80,8 +80,14 @@ export default function Bookings() {
     }
   };
 
-  const upcomingBookings = bookings.filter(b => b.status === 'CONFIRMED');
-  const pastBookings = bookings.filter(b => b.status !== 'CONFIRMED');
+  /* A booking whose Zoho Bookings sync has not confirmed yet is still an
+   * upcoming session the student is waiting on — it is not history. Filtering
+   * on CONFIRMED alone filed every PENDING_CONFIRMATION request under "past",
+   * which reads as though the request vanished. Only genuinely finished or
+   * cancelled bookings belong in the second list. */
+  const ACTIVE = new Set(['CONFIRMED', 'PENDING_CONFIRMATION']);
+  const upcomingBookings = bookings.filter(b => ACTIVE.has(b.status));
+  const pastBookings = bookings.filter(b => !ACTIVE.has(b.status));
 
   return (
     <div className="space-y-8">
