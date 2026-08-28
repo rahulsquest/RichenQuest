@@ -40,21 +40,30 @@ const TABLE_NAMES = [
 const store = {};
 TABLE_NAMES.forEach(t => { store[t] = []; });
 
-// Seed counselor team structure for assignment when students register
-const defaultCounselors = [
-  {
-    counselorId: 'CNS_LON_001',
-    name: 'Eleanor Vance',
-    title: 'Senior UK & European Admissions Specialist',
-    email: 'admissions@richenquest.com',
-    phone: '+91 76312 07948',
-    office: 'London HQ',
-    specialization: ['STEM & Computer Science', 'Russell Group Universities', 'Student Visa Guidance'],
-    rating: 4.95,
-    activeCases: 0,
-    zohoBookingsStaffId: process.env.ZOHO_BOOKINGS_STAFF_ID || null
-  }
-];
+/*  No counsellor is seeded, deliberately.
+ *
+ *  This previously held one fabricated person — "Eleanor Vance", title
+ *  "Senior UK & European Admissions Specialist", office "London HQ",
+ *  rating 4.95 — and auth/index.js assigns Counselors[0] to every student
+ *  at signup and returns it in the login/signup response. Confirmed live:
+ *  a new account was told, by name, that this person was their assigned
+ *  counsellor. Support.jsx and Consultation.jsx render that name, email
+ *  and phone to the student.
+ *
+ *  So it was a fabricated human being, an invented 4.95 rating, and the
+ *  same "London HQ" office that was removed from the public website for
+ *  being untrue — all presented to a real family as fact. Prior claim
+ *  sweeps missed it because they only ever scanned client/src; this is
+ *  server-side seed data.
+ *
+ *  Every consumer already degrades honestly: counselor?.name falls back to
+ *  "Admissions Counselor", and email/phone fall back to the real support
+ *  address and number in config/environment.js. A generic desk label that
+ *  is true beats a named specialist who does not exist.
+ *
+ *  Add real counsellors here only when real people hold the role — same
+ *  standard the Vendors/mentor module is held to. */
+const defaultCounselors = [];
 
 store.Counselors = defaultCounselors;
 
