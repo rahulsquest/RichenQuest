@@ -20,7 +20,7 @@ export default function Bookings() {
   const [selectedBooking, setSelectedBooking] = useState(null);
   const [rescheduleModalOpen, setRescheduleModalOpen] = useState(false);
   const [rescheduleDate, setRescheduleDate] = useState('');
-  const [rescheduleSlot, setRescheduleSlot] = useState('15:30 - 16:15 BST');
+  const [rescheduleSlot, setRescheduleSlot] = useState('15:30 - 16:15 IST');
   const [processing, setProcessing] = useState(false);
 
   const fetchBookings = async () => {
@@ -191,11 +191,11 @@ export default function Bookings() {
             value={rescheduleSlot}
             onChange={(e) => setRescheduleSlot(e.target.value)}
             options={[
-              '09:30 - 10:15 BST',
-              '11:00 - 11:45 BST',
-              '14:00 - 14:45 BST',
-              '15:30 - 16:15 BST',
-              '17:00 - 17:45 BST'
+              '09:30 - 10:15 IST',
+              '11:00 - 11:45 IST',
+              '14:00 - 14:45 IST',
+              '15:30 - 16:15 IST',
+              '17:00 - 17:45 IST'
             ]}
             required
           />

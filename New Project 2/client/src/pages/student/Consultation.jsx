@@ -16,7 +16,7 @@ export default function Consultation() {
   const [formData, setFormData] = useState({
     consultationType: 'Initial Profile Evaluation & University Shortlisting',
     date: new Date(Date.now() + 2 * 86400000).toISOString().split('T')[0],
-    timeSlot: '14:00 - 14:45 BST',
+    timeSlot: '14:00 - 14:45 IST',
     notes: ''
   });
 
@@ -29,11 +29,11 @@ export default function Consultation() {
   ];
 
   const timeSlots = [
-    '09:30 - 10:15 BST',
-    '11:00 - 11:45 BST',
-    '14:00 - 14:45 BST',
-    '15:30 - 16:15 BST',
-    '17:00 - 17:45 BST'
+    '09:30 - 10:15 IST',
+    '11:00 - 11:45 IST',
+    '14:00 - 14:45 IST',
+    '15:30 - 16:15 IST',
+    '17:00 - 17:45 IST'
   ];
 
   const handleSubmit = async (e) => {
@@ -45,12 +45,18 @@ export default function Consultation() {
 
     setLoading(true);
     try {
-      await bookingService.createBooking({
+      const res = await bookingService.createBooking({
         studentId: student.studentId,
         counselorId: counselor?.counselorId || null,
         ...formData
       });
-      addToast('Consultation confirmed! Calendar invite & confirmation dispatched.', 'success');
+      /* Report what the server actually did. This previously always said
+       * "Consultation confirmed! Calendar invite & confirmation dispatched."
+       * — but a booking is only CONFIRMED once Zoho Bookings confirms it, and
+       * when that sync is unconfigured or fails the booking is saved as
+       * PENDING_CONFIRMATION with no meeting link and no invite sent. The old
+       * toast told the student an invite was in their inbox when none existed. */
+      addToast(res?.message || 'Consultation request received.', 'success');
       navigate('/bookings');
     } catch (err) {
       addToast(err.message || 'No consultation availability is currently available.', 'error');
@@ -113,12 +119,17 @@ export default function Consultation() {
                 onChange={(e) => setFormData({ ...formData, date: e.target.value })}
                 required
               />
+              {/* These times are a request, not confirmed availability — nothing
+                  here is checked against a counsellor's calendar, so the label
+                  must not imply a free slot. The backend agrees: a booking stays
+                  PENDING_CONFIRMATION until the provider actually confirms it. */}
               <Select
-                label="Time Slot (BST / UK Time)"
+                label="Preferred Time Slot (IST)"
                 name="timeSlot"
                 value={formData.timeSlot}
                 onChange={(e) => setFormData({ ...formData, timeSlot: e.target.value })}
                 options={timeSlots}
+                helperText="We'll confirm your slot before the session."
                 required
               />
             </div>
