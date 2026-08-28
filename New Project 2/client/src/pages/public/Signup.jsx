@@ -7,6 +7,14 @@ import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { TARGET_COUNTRIES, DEGREE_LEVELS } from '../../constants/entities';
 
+/* WAITING FOR LEGAL APPROVAL — mirrors backend/functions/shared/consent.js.
+ * False today, so this file renders and behaves exactly as it did before
+ * this change: no checkbox, no validation, no field sent. Flip only after
+ * that file's TEXT/VERSION are filled with advocate-approved wording and
+ * its own READY flips too — the two are meant to change together. */
+const CONSENT_GATE_READY = false;
+const CONSENT_TEXT = null; // approved wording goes here, verbatim — never invented
+
 export default function Signup() {
   const [formData, setFormData] = useState({
     fullName: '',
@@ -14,7 +22,8 @@ export default function Signup() {
     phone: '',
     password: '',
     countryOfCitizenship: 'India',
-    targetDegree: 'Postgraduate (Master\'s / MSc / MA / MEng / MBA)'
+    targetDegree: 'Postgraduate (Master\'s / MSc / MA / MEng / MBA)',
+    consentGiven: false
   });
   const [loading, setLoading] = useState(false);
   const { signup } = useAuth();
@@ -33,6 +42,10 @@ export default function Signup() {
     }
     if (formData.password.length < 8) {
       addToast('Password must be at least 8 characters long.', 'warning');
+      return;
+    }
+    if (CONSENT_GATE_READY && !formData.consentGiven) {
+      addToast('Please review and accept the consent statement to continue.', 'warning');
       return;
     }
 
@@ -134,6 +147,20 @@ export default function Signup() {
               helperText="Minimum 8 characters"
               required
             />
+
+            {CONSENT_GATE_READY && (
+              <label className="flex items-start gap-2.5 text-xs text-slate-600 cursor-pointer">
+                <input
+                  type="checkbox"
+                  name="consentGiven"
+                  checked={formData.consentGiven}
+                  onChange={(e) => setFormData({ ...formData, consentGiven: e.target.checked })}
+                  className="mt-0.5 rounded text-indigo-600 focus:ring-indigo-500"
+                  required
+                />
+                <span>{CONSENT_TEXT}</span>
+              </label>
+            )}
 
             <Button
               type="submit"

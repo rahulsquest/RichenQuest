@@ -153,6 +153,13 @@ class ZohoCrmService {
             Phone: student.phone || '',
             Mailing_Country: student.countryOfCitizenship || student.currentLocation || '',
             Description: `Student ID: ${student.studentId} | Target Degree: ${student.targetDegree || 'N/A'} | Target Countries: ${(student.targetCountries || []).join(', ')}`,
+            /* Present only once shared/consent.js is activated and consent was
+             * actually given — see auth/index.js. Absent today, so this line
+             * writes nothing. */
+            ...(student.Consent_Given_On ? {
+              Consent_Given_On: student.Consent_Given_On,
+              Consent_Version: student.Consent_Version
+            } : {}),
             ...(existing ? { id: existing.id } : {})
           }
         ]

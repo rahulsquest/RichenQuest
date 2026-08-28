@@ -7,6 +7,7 @@ const crypto = require('crypto');
 const CatalystDataStore = require('../shared/dataStore');
 const { sendSuccess, sendError } = require('../shared/response');
 const ZohoClient = require('../shared/zohoClient');
+const consent = require('../shared/consent');
 
 const usersTable = CatalystDataStore.getTable('Users');
 const studentsTable = CatalystDataStore.getTable('Students');
@@ -87,9 +88,19 @@ async function handleAuth(req, res) {
 
   // POST /api/auth/signup
   if (method === 'POST' && path === '/signup') {
-    const { fullName, email, password, phone, countryOfCitizenship, targetDegree, targetCountries } = req.body || {};
+    const { fullName, email, password, phone, countryOfCitizenship, targetDegree, targetCountries, consentGiven } = req.body || {};
     if (!fullName || !email || !password) {
       return sendError(res, 'VALIDATION_ERROR', 'Full name, email, and password are required.', 400);
+    }
+
+    /*  WAITING FOR LEGAL APPROVAL — inert while consent.isReady() is false,
+     *  which it is today. No behavior change until it flips (see
+     *  shared/consent.js). Once it does, no record of any kind — not the
+     *  local account, not the CRM Contact — is created without consent;
+     *  refusing here means nothing downstream needs its own check. */
+    if (consent.isReady() && !consentGiven) {
+      return sendError(res, 'CONSENT_REQUIRED',
+        'Please review and accept the consent statement to create an account.', 400);
     }
 
     const normalizedEmail = email.toLowerCase().trim();
@@ -208,7 +219,14 @@ async function handleAuth(req, res) {
      *  actually working — a structural gap, not a credentials problem.
      *  upsertContact() writes to Contacts (crm/v3/Contacts), not Leads, so
      *  crmModule is set to match what was actually synced. */
-    ZohoClient.syncContactToCrm(newStudent).then(crmRes => {
+    /* consent.record() only when the gate is actually on and consent was
+     * actually given — spreading {} when not is a no-op, so this line adds
+     * nothing to the object while isReady() is false. */
+    const contactPayload = consent.isReady() && consentGiven
+      ? { ...newStudent, ...consent.record() }
+      : newStudent;
+
+    ZohoClient.syncContactToCrm(contactPayload).then(crmRes => {
       if (crmRes?.crmContactId) {
         studentsTable.update(s => s.studentId === studentId, {
           zohoCrmSyncStatus: {
