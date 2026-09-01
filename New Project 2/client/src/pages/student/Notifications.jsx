@@ -12,7 +12,7 @@ export default function Notifications() {
   const filtered = filter === 'ALL'
     ? notifications
     : filter === 'UNREAD'
-    ? notifications.filter(n => !n.read)
+    ? notifications.filter(n => !n.isRead)
     : notifications.filter(n => n.type.startsWith(filter));
 
   return (

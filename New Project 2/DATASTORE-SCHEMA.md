@@ -139,7 +139,7 @@ becomes a silent write failure on the single most compliance-sensitive record yo
 | `type` | Text(40) | yes | |
 | `title` | Text(255) | yes | |
 | `message` | Text(2000) | yes | |
-| `read` | Boolean | yes | |
+| `isRead` | Boolean | yes | Named `isRead`, not `read` — Catalyst rejects `read` as a reserved keyword |
 | `createdAt` | Text(32) | yes | ISO-8601 |
 | `actionUrl` | Text(255) | no | Internal path only — guarded client-side by `internalPath()` |
 

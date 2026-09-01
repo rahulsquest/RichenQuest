@@ -98,7 +98,7 @@ async function handleBookings(req, res) {
       message: zohoConfirmed
         ? `Your session for "${consultationType}" with ${counselor?.name || 'Admissions Counselor'} is scheduled for ${date} at ${timeSlot}.`
         : `Your request for "${consultationType}" with ${counselor?.name || 'Admissions Counselor'} on ${date} at ${timeSlot} has been received. We'll confirm the meeting link shortly.`,
-      read: false,
+      isRead: false,
       createdAt: new Date().toISOString(),
       actionUrl: '/bookings'
     });

@@ -140,7 +140,7 @@ async function handleDocuments(req, res) {
       type: 'DOCUMENT_UPLOADED',
       title: 'Document Uploaded',
       message: `"${title}" has been submitted for counselor review.`,
-      read: false,
+      isRead: false,
       createdAt: new Date().toISOString(),
       actionUrl: '/documents'
     });

@@ -23,7 +23,7 @@ async function handleNotifications(req, res) {
     const list = studentId
       ? notificationsTable.find(n => n.studentId === studentId).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
       : [];
-    const unreadCount = list.filter(n => !n.read).length;
+    const unreadCount = list.filter(n => !n.isRead).length;
 
     return sendSuccess(res, {
       notifications: list,
@@ -38,7 +38,7 @@ async function handleNotifications(req, res) {
     }
     const list = notificationsTable.find(n => n.studentId === studentId);
     list.forEach(n => {
-      notificationsTable.update(item => item.notificationId === n.notificationId, { read: true });
+      notificationsTable.update(item => item.notificationId === n.notificationId, { isRead: true });
     });
     return sendSuccess(res, { markedCount: list.length }, 'All notifications marked as read.');
   }
@@ -51,7 +51,7 @@ async function handleNotifications(req, res) {
       return sendError(res, 'NOT_FOUND', 'Notification not found.', 404);
     }
 
-    const updated = notificationsTable.update(n => n.notificationId === notificationId, { read: true });
+    const updated = notificationsTable.update(n => n.notificationId === notificationId, { isRead: true });
     return sendSuccess(res, updated, 'Notification marked as read.');
   }
 

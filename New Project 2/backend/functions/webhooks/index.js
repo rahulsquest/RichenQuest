@@ -67,7 +67,7 @@ async function handleWebhooks(req, res) {
             type: 'DOCUMENT_APPROVED',
             title: 'Document Approved by Counselor',
             message: data.message || 'Your submitted document has been approved.',
-            read: false,
+            isRead: false,
             createdAt: new Date().toISOString(),
             actionUrl: '/documents'
           });
@@ -83,7 +83,7 @@ async function handleWebhooks(req, res) {
           type: 'APPLICATION_UPDATE',
           title: '🎉 University Offer Letter Received!',
           message: data.message || 'Congratulations! An offer letter has been uploaded to your case.',
-          read: false,
+          isRead: false,
           createdAt: new Date().toISOString(),
           actionUrl: '/applications'
         });

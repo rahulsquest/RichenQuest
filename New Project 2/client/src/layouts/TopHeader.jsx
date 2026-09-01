@@ -86,11 +86,11 @@ export default function TopHeader({ onOpenSidebar }) {
                   notifications.slice(0, 4).map((n) => (
                     <div
                       key={n.notificationId}
-                      className={`p-3.5 hover:bg-slate-50 transition-colors ${!n.read ? 'bg-indigo-50/30' : ''}`}
+                      className={`p-3.5 hover:bg-slate-50 transition-colors ${!n.isRead ? 'bg-indigo-50/30' : ''}`}
                     >
                       <div className="flex justify-between items-start gap-2">
                         <h5 className="text-xs font-bold text-slate-900">{n.title}</h5>
-                        {!n.read && (
+                        {!n.isRead && (
                           <button
                             onClick={() => markAsRead(n.notificationId)}
                             className="text-[10px] text-slate-400 hover:text-slate-600 underline"

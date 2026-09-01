@@ -212,7 +212,7 @@ async function handleAuth(req, res) {
       type: 'SYSTEM_NOTIFICATION',
       title: 'Welcome to RichenQuest!',
       message: 'Your student account has been created. Complete your academic details to get matched with your admissions counselor.',
-      read: false,
+      isRead: false,
       createdAt: new Date().toISOString(),
       actionUrl: '/profile'
     });

@@ -27,18 +27,18 @@ export function NotificationItem({ notification, onMarkRead }) {
   return (
     <div
       className={`p-4 rounded-xl border transition-all flex items-start gap-3.5 ${
-        notification.read
+        notification.isRead
           ? 'bg-white border-slate-200/70 text-slate-600'
           : 'bg-indigo-50/40 border-indigo-200 text-slate-900 shadow-xs'
       }`}
     >
-      <div className={`p-2 rounded-lg shrink-0 ${notification.read ? 'bg-slate-100' : 'bg-white shadow-xs'}`}>
+      <div className={`p-2 rounded-lg shrink-0 ${notification.isRead ? 'bg-slate-100' : 'bg-white shadow-xs'}`}>
         {getIcon(notification.type)}
       </div>
 
       <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between gap-2">
-          <h4 className={`text-sm ${notification.read ? 'font-medium' : 'font-bold'} text-slate-900`}>
+          <h4 className={`text-sm ${notification.isRead ? 'font-medium' : 'font-bold'} text-slate-900`}>
             {notification.title}
           </h4>
           <span className="text-[11px] text-slate-400 whitespace-nowrap">
@@ -57,7 +57,7 @@ export function NotificationItem({ notification, onMarkRead }) {
               View Details <ArrowRight className="w-3 h-3" />
             </Link>
           )}
-          {!notification.read && onMarkRead && (
+          {!notification.isRead && onMarkRead && (
             <button
               onClick={() => onMarkRead(notification.notificationId)}
               className="text-[11px] font-medium text-slate-500 hover:text-slate-700 underline cursor-pointer"
