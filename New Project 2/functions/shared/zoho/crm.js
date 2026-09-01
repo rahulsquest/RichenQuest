@@ -63,6 +63,43 @@ class ZohoCrmService {
     }
   }
 
+  /*  Lead_Source and Lead_Source_Detail are PICKLISTS. Zoho accepts a value
+   *  outside the list without error and then never matches it in a filter, so
+   *  a wrong value here is silent corruption, not a visible failure.
+   *
+   *  Confirmed against the live org 2026-09-01: Lead_Source admits only the
+   *  standard set (Web Download, External Referral, Advertisement, ...). This
+   *  code was sending free text — "Website Inquiry Form", "Website Study
+   *  Abroad Inquiry Form", "Contact Page Direct Message" — none of which are
+   *  members. Every lead created through this path carried an unfilterable
+   *  Lead_Source, and Lead_Source_Detail was never written at all, so channel
+   *  attribution was lost.
+   *
+   *  parseInquiry.dg already does this correctly; these maps mirror it so the
+   *  two ingestion paths agree. The caller's descriptive string is preserved
+   *  verbatim in Description, so nothing is lost by normalising here. */
+  static leadSourceFor(rawSource) {
+    const MAP = {
+      'Website Inquiry Form':            { Lead_Source: 'Web Download',      Lead_Source_Detail: 'Website Form' },
+      'Website Study Abroad Inquiry Form': { Lead_Source: 'Web Download',    Lead_Source_Detail: 'Website Form' },
+      'Contact Page Direct Message':     { Lead_Source: 'Web Download',      Lead_Source_Detail: 'Website Form' },
+      'Referral':                        { Lead_Source: 'External Referral', Lead_Source_Detail: 'Referral' },
+      'WhatsApp':                        { Lead_Source: 'Chat',              Lead_Source_Detail: 'WhatsApp' }
+    };
+    return MAP[rawSource] || { Lead_Source: 'Web Download', Lead_Source_Detail: 'Website Form' };
+  }
+
+  /*  Country is also a picklist — 248 standard names. TARGET_COUNTRIES in the
+   *  frontend is a study-destination list, not a country list, and one entry
+   *  ("Dubai (UAE)") is not a country name Zoho recognises. An empty string is
+   *  not a valid member either, so the field is omitted rather than blanked. */
+  static countryFor(rawCountry) {
+    const ALIASES = { 'Dubai (UAE)': 'United Arab Emirates' };
+    const v = (rawCountry || '').trim();
+    if (!v) return null;
+    return ALIASES[v] || v;
+  }
+
   /**
    * Create or update a Lead in Zoho CRM
    * Avoids duplicates by searching email first.
@@ -79,15 +116,21 @@ class ZohoCrmService {
     try {
       const existing = await this.searchLeadByEmail(lead.email);
 
+      const src = ZohoCrmService.leadSourceFor(lead.source);
+      const country = ZohoCrmService.countryFor(lead.country);
+
       const payload = {
         data: [
           {
             Last_Name: lead.name || 'Student Lead',
             Email: lead.email,
             Phone: lead.phone || '',
-            Lead_Source: lead.source || 'Website Inquiry Form',
-            Description: `Study Interest: ${lead.studyInterest || 'General Study Abroad'} | Target University: ${lead.university || 'N/A'} | Program: ${lead.program || 'N/A'} | Message: ${lead.message || ''}`,
-            Country: lead.country || '',
+            Lead_Source: src.Lead_Source,
+            Lead_Source_Detail: src.Lead_Source_Detail,
+            /* The caller's own wording is kept here so normalising the
+             * picklists above loses no information. */
+            Description: `Study Interest: ${lead.studyInterest || 'General Study Abroad'} | Target University: ${lead.university || 'N/A'} | Program: ${lead.program || 'N/A'} | Submitted via: ${lead.source || 'Website Inquiry Form'} | Message: ${lead.message || ''}`,
+            ...(country ? { Country: country } : {}),
             ...(existing ? { id: existing.id } : {})
           }
         ]
