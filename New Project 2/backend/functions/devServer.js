@@ -144,7 +144,26 @@ app.use('/api/me', (req, res) => {
   authHandler(req, res);
 });
 
-app.use('/api/auth', (req, res) => {
+/*  Login is the brute-force surface: unauthenticated, unlimited attempts, and
+ *  a correct guess yields a 12-hour session. Signup is the spam surface.
+ *
+ *  Deliberately looser than the lead form, because locking out a real student
+ *  who mistypes a password is its own failure. Five attempts in fifteen
+ *  minutes stops credential stuffing while leaving room for honest fumbling;
+ *  password reset is limited on the same bucket because it sends mail.
+ *  Signup gets its own hourly bucket — a real person creates one account.
+ *
+ *  Read-only auth routes (/me, verify-email) are intentionally not limited. */
+const loginRateLimit  = createRateLimiter({ windowMs: 15 * 60 * 1000, max: 5,  name: 'login' });
+const signupRateLimit = createRateLimiter({ windowMs: 60 * 60 * 1000, max: 10, name: 'signup' });
+
+app.use('/api/auth', (req, res, next) => {
+  if (req.method !== 'POST') return next();
+  const p = (req.url || '').split('?')[0].replace(/\/+$/, '');
+  if (p === '/login' || p === '' || p === '/reset-password') return loginRateLimit(req, res, next);
+  if (p === '/signup') return signupRateLimit(req, res, next);
+  return next();
+}, (req, res) => {
   authHandler(req, res);
 });
 

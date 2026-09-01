@@ -260,11 +260,63 @@ class CatalystDataStore {
     return report;
   }
 
+  /*  Password hashing.
+   *
+   *  WHAT WAS WRONG
+   *    This was HMAC-SHA256 with a single hardcoded salt — 'richenquest_salt'
+   *    — shared by every user. Three separate problems:
+   *      1. One static salt means identical passwords produce identical
+   *         hashes, so a stolen table shows at a glance which accounts share
+   *         a password, and one rainbow table covers every user at once.
+   *      2. SHA-256 is a FAST hash. It is built to be fast. Commodity
+   *         hardware tries it billions of times per second, so a leaked
+   *         table is effectively plaintext for any common password.
+   *      3. No work factor, so it could not be tuned as hardware improved.
+   *
+   *  WHAT IT IS NOW
+   *    scrypt — a memory-hard KDF from Node's own crypto module, so no new
+   *    dependency — with 16 random bytes of salt per user. Stored as
+   *    "scrypt$<salt-hex>$<hash-hex>" so the salt travels with the hash and
+   *    the format is self-describing for any future migration.
+   *
+   *  LEGACY VERIFICATION
+   *    verifyPassword still accepts an old bare-hex hash so no existing
+   *    account is locked out, and reports needsRehash so the caller can
+   *    silently upgrade the stored hash on next successful login. */
+  static hashPassword(password) {
+    const salt = crypto.randomBytes(16);
+    const hash = crypto.scryptSync(String(password), salt, 64);
+    return `scrypt$${salt.toString('hex')}$${hash.toString('hex')}`;
+  }
+
+  /** Legacy format only — kept so old hashes can still be verified. */
+  static legacyHashPassword(password, salt = 'richenquest_salt') {
+    return crypto.createHmac('sha256', salt).update(String(password)).digest('hex');
+  }
+
   /**
-   * Helper to hash passwords using standard SHA-256 with salt
+   * Verify a password against either format.
+   * @returns {{ok: boolean, needsRehash: boolean}}
    */
-  static hashPassword(password, salt = 'richenquest_salt') {
-    return crypto.createHmac('sha256', salt).update(password).digest('hex');
+  static verifyPassword(password, stored) {
+    if (!stored) return { ok: false, needsRehash: false };
+
+    if (String(stored).startsWith('scrypt$')) {
+      const [, saltHex, hashHex] = String(stored).split('$');
+      if (!saltHex || !hashHex) return { ok: false, needsRehash: false };
+      const expected = Buffer.from(hashHex, 'hex');
+      const actual = crypto.scryptSync(String(password), Buffer.from(saltHex, 'hex'), expected.length);
+      /* Constant-time: a byte-by-byte early exit leaks how much of the hash
+       * matched, which is exactly what an attacker wants to iterate on. */
+      const ok = expected.length === actual.length && crypto.timingSafeEqual(expected, actual);
+      return { ok, needsRehash: false };
+    }
+
+    const legacy = Buffer.from(CatalystDataStore.legacyHashPassword(password), 'utf8');
+    const storedBuf = Buffer.from(String(stored), 'utf8');
+    const ok = legacy.length === storedBuf.length && crypto.timingSafeEqual(legacy, storedBuf);
+    // A correct password against a legacy hash is the moment to upgrade it.
+    return { ok, needsRehash: ok };
   }
 }
 

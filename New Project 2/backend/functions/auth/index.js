@@ -55,13 +55,26 @@ async function handleAuth(req, res) {
     }
 
     const user = usersTable.findOne(u => u.email.toLowerCase() === email.toLowerCase().trim());
-    if (!user) {
+
+    /*  Always run a verification, even when the account does not exist.
+     *  Returning early on an unknown email answered in microseconds while a
+     *  real email took the full hash time — a measurable difference that tells
+     *  an attacker which addresses are registered. Hashing against a dummy
+     *  makes both paths cost the same. The error text was already identical
+     *  for both cases; this closes the timing channel behind it. */
+    const DUMMY = 'scrypt$00000000000000000000000000000000$00';
+    const check = CatalystDataStore.verifyPassword(password, user ? user.password : DUMMY);
+
+    if (!user || !check.ok) {
       return sendError(res, 'INVALID_CREDENTIALS', 'Invalid email address or password.', 401);
     }
 
-    const hashedPassword = CatalystDataStore.hashPassword(password);
-    if (user.password !== hashedPassword) {
-      return sendError(res, 'INVALID_CREDENTIALS', 'Invalid email address or password.', 401);
+    /*  Correct password still stored under the old fast hash — upgrade it now,
+     *  transparently. The student never sees this and never has to reset. */
+    if (check.needsRehash) {
+      usersTable.update(u => u.userId === user.userId, {
+        password: CatalystDataStore.hashPassword(password)
+      });
     }
 
     // Update last login
