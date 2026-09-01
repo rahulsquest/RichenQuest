@@ -21,8 +21,17 @@ const requireStudent = require('./shared/requireStudent');
 const webhooksHandler = require('./webhooks');
 const ZohoClient = require('./shared/zohoClient');
 const { sendSuccess, sendError } = require('./shared/response');
+const { createRateLimiter } = require('./shared/rateLimit');
 
 const app = express();
+
+/*  One hop: the Catalyst edge sits in front of this process. Without this,
+ *  req.ip is the edge's address, every visitor shares a single rate-limit
+ *  bucket, and the first bot locks out every real student. Trusting exactly
+ *  one hop means a client-supplied X-Forwarded-For cannot be used to forge a
+ *  different identity — Express takes the entry the edge appended, not the
+ *  attacker's. */
+app.set('trust proxy', 1);
 /*  Port resolution across every environment this app runs in.
  *  Catalyst AppSail supplies the port it will probe; binding anywhere else
  *  makes the platform report "Execution failed. Please check the startup
@@ -54,6 +63,16 @@ app.use(cors({
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Catalyst-Client']
 }));
+
+/*  Must be registered BEFORE the global parser below. body-parser marks the
+ *  request once parsed and later parsers skip it, so whichever runs first owns
+ *  the limit — a route-level parser mounted after the global one is silently a
+ *  no-op (verified: a 200 KB inquiry was accepted until this was moved up).
+ *
+ *  An inquiry form has no business sending more than 64 KB. The global limit
+ *  stays 10 MB because /api/documents legitimately accepts base64 uploads;
+ *  lowering it globally would break document upload. */
+app.use('/api/leads', express.json({ limit: '64kb' }));
 
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
@@ -129,7 +148,18 @@ app.use('/api/auth', (req, res) => {
   authHandler(req, res);
 });
 
-app.use('/api/leads', (req, res) => {
+/*  The only public, unauthenticated route that writes to CRM, so it is the one
+ *  that needs a throttle. 10 per 15 minutes per IP: a family submitting an
+ *  inquiry, sending a contact message and correcting a typo uses three or four
+ *  and never notices, while a script filling the CRM is stopped early.
+ *  Its 64 KB body limit is registered further up, before the global parser. */
+const leadsRateLimit = createRateLimiter({ windowMs: 15 * 60 * 1000, max: 10, name: 'leads' });
+
+app.use('/api/leads', (req, res, next) => {
+  // GET is staff-only and already gated; the flood risk is the public POST.
+  if (req.method === 'POST') return leadsRateLimit(req, res, next);
+  return next();
+}, (req, res) => {
   leadsHandler(req, res);
 });
 
