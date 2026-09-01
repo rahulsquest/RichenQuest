@@ -1,0 +1,18 @@
+# Files the Catalyst packer must never upload.
+#
+# deploy/features/appsail/pack.js excludes only .DS_Store, .vscode, its own
+# log/config/rc/app-config files and this file. It does NOT read .gitignore.
+# So without this list, backend/.env — which is gitignored precisely so it is
+# never distributed — was being packaged and deployed. Verified 2026-09-01 by
+# rebuilding the artifact the packer produces.
+#
+# Two separate problems that caused:
+#   1. SESSION_SECRET, a real secret, was uploaded with the build.
+#   2. server.js calls dotenv.config() at startup. dotenv does not override an
+#      already-set variable, so injected Catalyst values still win — but any
+#      variable Catalyst does NOT inject falls through to the .env value. With
+#      the file present the artifact binds PORT=5000 from .env (confirmed by
+#      running the packaged tree), and picks up NODE_ENV and a localhost
+#      CORS_ALLOWED_ORIGINS meant only for development.
+.env
+.env.*
