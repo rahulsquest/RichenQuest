@@ -53,11 +53,13 @@ export default function Bookings() {
     }
     setProcessing(true);
     try {
-      await bookingService.rescheduleBooking(selectedBooking.bookingId, {
+      const res = await bookingService.rescheduleBooking(selectedBooking.bookingId, {
         date: rescheduleDate,
         timeSlot: rescheduleSlot
       });
-      addToast('Consultation rescheduled successfully! Updated invite dispatched.', 'success');
+      /*  Was: "Updated invite dispatched." No invite is sent — Flow is
+       *  unconfigured — so that half was false. */
+      addToast(res?.message || 'Consultation rescheduled.', 'success');
       setRescheduleModalOpen(false);
       fetchBookings();
     } catch (err) {

@@ -65,7 +65,13 @@ export default function Inquiry() {
       });
       setLeadResult(response?.data);
       setSubmitted(true);
-      addToast('Inquiry recorded and queued for Zoho CRM counselor assignment!', 'success');
+      /*  The server decides what to claim, because only the server knows what
+       *  actually happened. It says a counsellor will review the profile only
+       *  when the lead genuinely reached CRM; otherwise it says the inquiry was
+       *  received. This used to assert "queued for Zoho CRM counselor
+       *  assignment" on any 2xx, which is a promise about a person the frontend
+       *  cannot verify. */
+      addToast(response?.message || 'Inquiry received.', 'success');
     } catch (err) {
       addToast(err.message || 'Failed to submit inquiry', 'error');
     } finally {

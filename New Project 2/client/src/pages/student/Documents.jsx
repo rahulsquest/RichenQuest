@@ -59,7 +59,7 @@ export default function Documents() {
 
     setUploading(true);
     try {
-      await documentService.uploadDocument({
+      const res = await documentService.uploadDocument({
         studentId: student?.studentId,
         documentType: uploadForm.documentType,
         title: uploadForm.title || uploadForm.file.name,
@@ -67,7 +67,11 @@ export default function Documents() {
         fileSize: `${(uploadForm.file.size / (1024 * 1024)).toFixed(2)} MB`,
         mimeType: uploadForm.file.type || 'application/pdf'
       });
-      addToast('Document uploaded and queued for WorkDrive synchronization!', 'success');
+      /*  Was: "queued for WorkDrive synchronization". The server now refuses
+       *  with 503 when the file was not actually stored, so reaching this line
+       *  means it was — but the wording still asserted a specific downstream
+       *  system. Say what is known. */
+      addToast(res?.message || 'Document uploaded.', 'success');
       setUploadModalOpen(false);
       setUploadForm({ documentType: 'PASSPORT', title: '', file: null });
       fetchDocuments();

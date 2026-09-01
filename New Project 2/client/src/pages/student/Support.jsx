@@ -27,7 +27,7 @@ export default function Support() {
     }
     setLoading(true);
     try {
-      await leadService.submitInquiry({
+      const res = await leadService.submitInquiry({
         name: student?.fullName || 'Student',
         email: student?.email || env.supportEmail,
         phone: student?.phone || '',
@@ -36,7 +36,11 @@ export default function Support() {
         source: 'Student Portal Support Desk'
       });
       setTicketSent(true);
-      addToast('Support inquiry dispatched to your admissions counselor.', 'success');
+      /*  Was: "dispatched to your admissions counselor" — a claim that a named
+       *  human received it. No counsellor is assigned to any student today
+       *  (the Counselors table is deliberately empty), so this was false for
+       *  every student who saw it. */
+      addToast(res?.message || 'Support request received.', 'success');
     } catch (err) {
       addToast(err.message || 'Failed to dispatch inquiry.', 'error');
     } finally {

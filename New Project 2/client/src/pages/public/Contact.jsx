@@ -34,12 +34,16 @@ export default function Contact() {
     }
     setLoading(true);
     try {
-      await leadService.submitInquiry({
+      const res = await leadService.submitInquiry({
         ...formData,
         source: 'Contact Page Direct Message'
       });
       setSubmitted(true);
-      addToast('Message dispatched! Our admissions team will reach out within 24 hours.', 'success');
+      /*  Was: "Message dispatched! Our admissions team will reach out within 24
+       *  hours." Two unverifiable claims — that it was dispatched to anyone, and
+       *  a 24-hour response commitment nothing enforces. The server's message
+       *  reflects what actually happened. */
+      addToast(res?.message || 'Message received.', 'success');
     } catch (err) {
       addToast(err.message || 'Failed to send message', 'error');
     } finally {

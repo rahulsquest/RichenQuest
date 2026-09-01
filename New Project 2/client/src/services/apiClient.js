@@ -55,10 +55,47 @@ class ApiClient {
       if (contentType && contentType.includes('application/json')) {
         data = await response.json();
       } else {
-        data = { message: await response.text() };
+        /*  A 2xx that is not JSON did not come from this API.
+         *
+         *  Every backend route answers through sendSuccess/sendError, so JSON
+         *  is the only shape the API produces. When the app is built without
+         *  VITE_API_BASE_URL it calls the relative '/api', which the static
+         *  host answers with index.html and HTTP 200 — verified against the
+         *  live site. That used to resolve successfully as
+         *  { message: '<!doctype html>…' }, so callers saw no error, read
+         *  undefined off it, and rendered empty lists and zero counts that
+         *  look exactly like real data for a new student. A dashboard
+         *  confidently showing nothing is a false statement, not a blank
+         *  state, so this is treated as the failure it is. */
+        const body = await response.text();
+        if (response.ok) {
+          const error = new Error(
+            'The service is temporarily unavailable. Please try again shortly.');
+          error.status = response.status;
+          error.code = 'API_UNREACHABLE';
+          error.detail = body.slice(0, 200);
+          throw error;
+        }
+        data = { message: body };
       }
 
       if (!response.ok) {
+        /*  Every response this API produces carries a boolean `success` — see
+         *  shared/response.js. A JSON error without it did not come from us.
+         *  The live case is the static host rejecting a POST to the relative
+         *  '/api' with its own envelope and HTTP 405, which surfaced to a
+         *  student submitting the inquiry form as the literal text "HTTP Error
+         *  405". That is honest in that it is an error, and useless in that it
+         *  tells them nothing they can act on. Same failure as the branch
+         *  above — the API is not reachable — so it says the same thing. */
+        if (typeof data?.success !== 'boolean') {
+          const error = new Error(
+            'The service is temporarily unavailable. Please try again shortly.');
+          error.status = response.status;
+          error.code = 'API_UNREACHABLE';
+          error.detail = JSON.stringify(data).slice(0, 200);
+          throw error;
+        }
         const error = new Error(data?.error?.message || data?.message || `HTTP Error ${response.status}`);
         error.status = response.status;
         error.code = data?.error?.code || 'API_ERROR';

@@ -69,7 +69,11 @@ export default function Profile() {
 
       const updated = await studentService.updateStudent(student?.studentId, updates);
       setStudent(updated);
-      addToast('Profile updated successfully and synced with Zoho Data Store.', 'success');
+      /*  Was: "synced with Zoho Data Store". The CRM/Data Store sync is
+       *  fire-and-forget on the server and its failure is only logged, so the
+       *  sync half of that sentence was never verified. The local update is
+       *  real, so that is what is claimed. */
+      addToast('Profile updated.', 'success');
     } catch (err) {
       addToast(err.message || 'Failed to update profile', 'error');
     } finally {
