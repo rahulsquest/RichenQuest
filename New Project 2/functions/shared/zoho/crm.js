@@ -100,6 +100,26 @@ class ZohoCrmService {
     return ALIASES[v] || v;
   }
 
+  /*  Zoho enforces a maximum length per field and rejects the WHOLE record if
+   *  any one value exceeds it. Nothing in this codebase bounded these, so a
+   *  single long value silently cost the entire lead: the CRM call fails, the
+   *  error is caught and logged, and the student still sees a success response
+   *  because the record was saved locally. Losing a few characters off the end
+   *  of a name is strictly better than losing the student.
+   *
+   *  Limits confirmed against the live Leads module 2026-09-01:
+   *    Last_Name  text     80    (system_mandatory: true)
+   *    Email      email    100
+   *    Phone      phone    30
+   *    Description textarea 32000
+   *
+   *  Description is the one most likely to blow the limit: it concatenates
+   *  free text from the form, and express.json accepts a 10 MB body. */
+  static clamp(value, max) {
+    const v = value === undefined || value === null ? '' : String(value);
+    return v.length > max ? v.slice(0, max) : v;
+  }
+
   /**
    * Create or update a Lead in Zoho CRM
    * Avoids duplicates by searching email first.
@@ -122,14 +142,14 @@ class ZohoCrmService {
       const payload = {
         data: [
           {
-            Last_Name: lead.name || 'Student Lead',
-            Email: lead.email,
-            Phone: lead.phone || '',
+            Last_Name: ZohoCrmService.clamp(lead.name || 'Student Lead', 80),
+            Email: ZohoCrmService.clamp(lead.email, 100),
+            Phone: ZohoCrmService.clamp(lead.phone || '', 30),
             Lead_Source: src.Lead_Source,
             Lead_Source_Detail: src.Lead_Source_Detail,
             /* The caller's own wording is kept here so normalising the
              * picklists above loses no information. */
-            Description: `Study Interest: ${lead.studyInterest || 'General Study Abroad'} | Target University: ${lead.university || 'N/A'} | Program: ${lead.program || 'N/A'} | Submitted via: ${lead.source || 'Website Inquiry Form'} | Message: ${lead.message || ''}`,
+            Description: ZohoCrmService.clamp(`Study Interest: ${lead.studyInterest || 'General Study Abroad'} | Target University: ${lead.university || 'N/A'} | Program: ${lead.program || 'N/A'} | Submitted via: ${lead.source || 'Website Inquiry Form'} | Message: ${lead.message || ''}`, 32000),
             ...(country ? { Country: country } : {}),
             /*  Consent into the real Leads consent fields — structured and
              *  filterable, never Description. Passed through from the lead
@@ -200,12 +220,15 @@ class ZohoCrmService {
       const payload = {
         data: [
           {
-            First_Name: firstName,
-            Last_Name: lastName,
-            Email: student.email,
-            Phone: student.phone || '',
+            /* Same length discipline as upsertLead — an over-length value
+             * makes Zoho reject the whole Contact, which would break the
+             * signup -> leadId linkage rather than just truncating a string. */
+            First_Name: ZohoCrmService.clamp(firstName, 40),
+            Last_Name: ZohoCrmService.clamp(lastName, 80),
+            Email: ZohoCrmService.clamp(student.email, 100),
+            Phone: ZohoCrmService.clamp(student.phone || '', 30),
             Mailing_Country: student.countryOfCitizenship || student.currentLocation || '',
-            Description: `Student ID: ${student.studentId} | Target Degree: ${student.targetDegree || 'N/A'} | Target Countries: ${(student.targetCountries || []).join(', ')}`,
+            Description: ZohoCrmService.clamp(`Student ID: ${student.studentId} | Target Degree: ${student.targetDegree || 'N/A'} | Target Countries: ${(student.targetCountries || []).join(', ')}`, 32000),
             /* Present only once shared/consent.js is activated and consent was
              * actually given — see auth/index.js. Absent today, so this line
              * writes nothing. */

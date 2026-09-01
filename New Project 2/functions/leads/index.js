@@ -22,6 +22,17 @@ async function handleLeads(req, res) {
       return sendError(res, 'VALIDATION_ERROR', 'Name and Email are mandatory for submitting an inquiry.', 400);
     }
 
+    /*  Reject a malformed address here rather than letting Zoho reject the
+     *  record later. A CRM rejection is caught and logged, so the student
+     *  would still be told the inquiry was received while nothing reached a
+     *  counsellor — a silent loss. Failing at the door is honest and lets the
+     *  student correct a typo. Deliberately a shape check, not an RFC 5322
+     *  implementation: over-strict email regexes reject real addresses. */
+    const emailStr = String(email).trim();
+    if (emailStr.length > 100 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailStr)) {
+      return sendError(res, 'VALIDATION_ERROR', 'Please enter a valid email address.', 400);
+    }
+
     /*  Server-side consent enforcement. The forms block submission too, but a
      *  checkbox is a courtesy, not a control — this is the one that actually
      *  stops a record being created. Refusing here means nothing downstream
