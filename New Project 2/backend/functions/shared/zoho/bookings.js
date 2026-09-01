@@ -87,7 +87,7 @@ class ZohoBookingsService {
     const postData = {
       service_id: serviceId,
       staff_id: staffId,
-      from_time: `${bookingData.date} ${bookingData.timeSlot?.split(' - ')[0] || '10:00:00'}`,
+      from_time: `${bookingData.bookingDate} ${bookingData.timeSlot?.split(' - ')[0] || '10:00:00'}`,
       customer_details: {
         name: bookingData.studentName || 'Student',
         email: bookingData.studentEmail || '',

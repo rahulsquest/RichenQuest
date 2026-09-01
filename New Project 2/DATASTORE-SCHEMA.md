@@ -178,7 +178,7 @@ becomes a silent write failure on the single most compliance-sensitive record yo
 | `studentId` | Text(40) | yes | **Index this** |
 | `counselorId` | Text(40) | no | |
 | `counselorName` | Text(255) | no | Falls back to `Admissions Counselor` |
-| `date` | Text(32) | yes | |
+| `bookingDate` | Text(32) | yes | Named `bookingDate`, not `date` — Catalyst rejects `date` as a reserved keyword |
 | `timeSlot` | Text(32) | yes | |
 | `consultationType` | Text(128) | no | |
 | `meetingType` | Text(32) | no | |

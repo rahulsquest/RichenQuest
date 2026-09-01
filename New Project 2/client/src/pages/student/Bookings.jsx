@@ -41,7 +41,7 @@ export default function Bookings() {
 
   const handleOpenReschedule = (b) => {
     setSelectedBooking(b);
-    setRescheduleDate(b.date);
+    setRescheduleDate(b.bookingDate);
     setRescheduleSlot(b.timeSlot);
     setRescheduleModalOpen(true);
   };
@@ -54,7 +54,7 @@ export default function Bookings() {
     setProcessing(true);
     try {
       const res = await bookingService.rescheduleBooking(selectedBooking.bookingId, {
-        date: rescheduleDate,
+        bookingDate: rescheduleDate,
         timeSlot: rescheduleSlot
       });
       /*  Was: "Updated invite dispatched." No invite is sent — Flow is

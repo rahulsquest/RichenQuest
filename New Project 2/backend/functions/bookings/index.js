@@ -45,9 +45,9 @@ async function handleBookings(req, res) {
 
   // POST /api/bookings
   if (method === 'POST') {
-    const { studentId, counselorId, consultationType, date, timeSlot, notes } = req.body || {};
+    const { studentId, counselorId, consultationType, bookingDate, timeSlot, notes } = req.body || {};
 
-    if (!studentId || !consultationType || !date || !timeSlot) {
+    if (!studentId || !consultationType || !bookingDate || !timeSlot) {
       return sendError(res, 'VALIDATION_ERROR', 'Student ID, consultation type, date, and time slot are required.', 400);
     }
 
@@ -63,7 +63,7 @@ async function handleBookings(req, res) {
       studentEmail: student?.email || '',
       studentPhone: student?.phone || '',
       counselorId: counselor?.counselorId || null,
-      date,
+      bookingDate,
       timeSlot,
       notes
     });
@@ -80,7 +80,7 @@ async function handleBookings(req, res) {
       counselorId: counselor?.counselorId || null,
       counselorName: counselor?.name || 'Admissions Counselor',
       consultationType,
-      date,
+      bookingDate,
       timeSlot,
       meetingType: 'Virtual Video Consultation',
       meetingUrl: zohoConfirmed ? zohoBookingResult.appointmentUrl : null,
@@ -96,8 +96,8 @@ async function handleBookings(req, res) {
       type: zohoConfirmed ? 'BOOKING_CONFIRMED' : 'BOOKING_PENDING',
       title: zohoConfirmed ? 'Consultation Confirmed' : 'Consultation Requested',
       message: zohoConfirmed
-        ? `Your session for "${consultationType}" with ${counselor?.name || 'Admissions Counselor'} is scheduled for ${date} at ${timeSlot}.`
-        : `Your request for "${consultationType}" with ${counselor?.name || 'Admissions Counselor'} on ${date} at ${timeSlot} has been received. We'll confirm the meeting link shortly.`,
+        ? `Your session for "${consultationType}" with ${counselor?.name || 'Admissions Counselor'} is scheduled for ${bookingDate} at ${timeSlot}.`
+        : `Your request for "${consultationType}" with ${counselor?.name || 'Admissions Counselor'} on ${bookingDate} at ${timeSlot} has been received. We'll confirm the meeting link shortly.`,
       isRead: false,
       createdAt: new Date().toISOString(),
       actionUrl: '/bookings'
@@ -112,7 +112,7 @@ async function handleBookings(req, res) {
       counselorName: counselor?.name,
       counselorEmail: counselor?.email,
       consultationType,
-      date,
+      bookingDate,
       timeSlot,
       meetingUrl: newBooking.meetingUrl
     });
@@ -137,7 +137,7 @@ async function handleBookings(req, res) {
       return sendError(res, 'NOT_FOUND', 'Booking not found.', 404);
     }
 
-    const RESCHEDULE_FIELDS = ['date', 'timeSlot', 'notes'];
+    const RESCHEDULE_FIELDS = ['bookingDate', 'timeSlot', 'notes'];
     const body = req.body || {};
     const updates = {};
     for (const f of RESCHEDULE_FIELDS) {
@@ -149,7 +149,7 @@ async function handleBookings(req, res) {
     ZohoClient.emitFlowEvent('BOOKING_RESCHEDULED', {
       bookingId,
       studentId: existing.studentId,
-      date: updated.date,
+      bookingDate: updated.bookingDate,
       timeSlot: updated.timeSlot
     });
 

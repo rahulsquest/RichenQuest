@@ -15,7 +15,7 @@ export default function Consultation() {
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     consultationType: 'Initial Profile Evaluation & University Shortlisting',
-    date: new Date(Date.now() + 2 * 86400000).toISOString().split('T')[0],
+    bookingDate: new Date(Date.now() + 2 * 86400000).toISOString().split('T')[0],
     timeSlot: '14:00 - 14:45 IST',
     notes: ''
   });
@@ -113,10 +113,10 @@ export default function Consultation() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <Input
                 label="Preferred Date"
-                name="date"
+                name="bookingDate"
                 type="date"
-                value={formData.date}
-                onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                value={formData.bookingDate}
+                onChange={(e) => setFormData({ ...formData, bookingDate: e.target.value })}
                 required
               />
               {/* These times are a request, not confirmed availability — nothing

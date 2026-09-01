@@ -24,7 +24,7 @@ export function BookingCard({ booking, onReschedule, onCancel }) {
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 py-3 border-y border-slate-100 text-xs text-slate-600 mb-4">
         <div className="flex items-center gap-2">
           <Calendar className="w-4 h-4 text-indigo-600 shrink-0" />
-          <span><strong className="text-slate-800">Date:</strong> {formatDate(booking.date)}</span>
+          <span><strong className="text-slate-800">Date:</strong> {formatDate(booking.bookingDate)}</span>
         </div>
         <div className="flex items-center gap-2">
           <Clock className="w-4 h-4 text-indigo-600 shrink-0" />
