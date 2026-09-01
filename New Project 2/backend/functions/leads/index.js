@@ -47,7 +47,7 @@ async function handleLeads(req, res) {
     const normalizedEmail = email.toLowerCase().trim();
     const leadId = `LEAD_RQ_${new Date().getFullYear()}_${Math.floor(1000 + Math.random() * 9000)}`;
 
-    const newLead = leadsTable.insert({
+    const { record: newLead, durable: locallyDurable } = await leadsTable.insertDurable({
       leadId,
       name: name.trim(),
       email: normalizedEmail,
@@ -96,34 +96,54 @@ async function handleLeads(req, res) {
       zohoCrmLeadId: crmSyncResult?.crmLeadId || null
     });
 
-    /*  SILENT-LOSS GUARD.
+    /*  DURABILITY GATE.
      *
      *  This route used to answer, unconditionally, "A RichenQuest counselor
-     *  will review your profile shortly." That sentence is only true when the
-     *  lead actually reached CRM. It can fail to:
-     *    - CRM unconfigured or erroring (caught and logged, never surfaced)
-     *    - the local store, which mirrors to Catalyst Data Store only when
-     *      those tables exist. They do not yet, so a lead currently lives in
-     *      process memory and does not survive a restart or redeploy.
-     *  Nothing re-processes a failed sync — zohoCrmStatus is recorded but no
-     *  reconciliation job reads it.
+     *  will review your profile shortly." That is only true when the lead
+     *  actually reached CRM, and it was sent even when nothing anywhere held
+     *  the record.
      *
-     *  So a student could be promised a counsellor while the record quietly
-     *  evaporated. The message is now conditional on what actually happened,
-     *  and an unsynced lead is logged at error level with the details needed
-     *  to recover it by hand — when nothing durable holds the record, the log
-     *  IS the record. That is a deliberate PII-in-logs trade: losing a
-     *  student's enquiry entirely is the worse outcome. */
+     *  A lead is durable if EITHER is true:
+     *    - Zoho CRM accepted it. That is the counsellor's own system of
+     *      record, so this is the strongest outcome and the only one that
+     *      justifies promising a counsellor.
+     *    - The Catalyst Data Store write succeeded. The record survives a
+     *      restart and can be synced to CRM later.
+     *
+     *  In-memory is NOT durable. The process restarts on every deploy and on
+     *  scale-down, and today no Data Store tables exist, so that is the live
+     *  behaviour — not a hypothetical. If neither holds the lead, saying
+     *  anything reassuring would be a lie, so the student is told plainly
+     *  that it did not go through and is given a route that works.
+     *
+     *  The error log is a manual recovery aid, deliberately not counted as
+     *  durability — a log is not storage. That is also why it carries the
+     *  contact details: when a submission has failed, being able to reach the
+     *  family back is worth the PII in an operational log. */
     const crmOk = ['SYNCED', 'CREATED', 'UPDATED'].includes(crmSyncResult?.status);
+    const durable = crmOk || locallyDurable;
 
-    if (!crmOk) {
-      console.error('[leads] NOT SYNCED TO CRM — recover manually:', JSON.stringify({
+    if (!durable) {
+      console.error('[leads] LEAD NOT DURABLE — no CRM record and no Data Store row:', JSON.stringify({
         leadId,
         name: name.trim(),
         email: normalizedEmail,
         phone: phone ? phone.trim() : '',
         country: country || null,
         program: program || null,
+        crmStatus: crmSyncResult?.status || 'UNKNOWN',
+        at: new Date().toISOString()
+      }));
+      return sendError(res, 'SUBMISSION_NOT_STORED',
+        'We could not record your inquiry just now, so it has not reached our team. ' +
+        'Please try again shortly, or email support@richenquest.com and we will pick it up from there.',
+        503);
+    }
+
+    if (!crmOk) {
+      console.error('[leads] stored but NOT SYNCED TO CRM — needs sync:', JSON.stringify({
+        leadId,
+        email: normalizedEmail,
         crmStatus: crmSyncResult?.status || 'UNKNOWN',
         at: new Date().toISOString()
       }));

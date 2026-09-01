@@ -40,19 +40,27 @@ echo
 json(){ node -pe "try{JSON.parse(require('fs').readFileSync(0,'utf8'))$1}catch(e){'PARSE_ERROR'}"; }
 uniq_email(){ echo "rq-readiness-$(date +%s)-$RANDOM@example.invalid"; }
 
-# ── 1. Valid lead ────────────────────────────────────────────────────────────
-echo "1. Valid lead"
+# ── 1. Lead durability gate ──────────────────────────────────────────────────
+#  This harness runs with no Catalyst Data Store and no CRM credentials, so
+#  nothing durable can hold a lead. The endpoint must therefore REFUSE rather
+#  than return the 201 it used to — a success there meant the student was told
+#  their inquiry reached the team while the only copy lived in process memory
+#  and died on the next restart.
+#
+#  The 201 path is exercised where it can actually be proven: the durability
+#  unit tests in scripts/datastore-schema-regression.sh.
+echo "1. Lead durability gate (no Data Store, no CRM)"
 E=$(uniq_email)
-R=$(curl -s -X POST "$BASE/api/leads" -H "Content-Type: application/json" \
+CODE=$(curl -s -o /tmp/rq-lead1.json -w '%{http_code}' -X POST "$BASE/api/leads" -H "Content-Type: application/json" \
   -d "{\"name\":\"RQ Readiness\",\"email\":\"$E\",\"phone\":\"9000000000\",\"country\":\"Germany\",\"program\":\"Postgraduate\"}")
-chk "accepted" "true" "$(echo "$R" | json '.success')"
-LEADID=$(echo "$R" | json '.data.lead.leadId')
-case "$LEADID" in LEAD_RQ_*) ok "leadId issued ($LEADID)";; *) no "leadId issued" "LEAD_RQ_*" "$LEADID";; esac
-# CRM status must reflect reality, never a fabricated success.
-CRM=$(echo "$R" | json '.data.zohoSync.crm.status')
-case "$CRM" in
-  UNCONFIGURED|SYNCED|CREATED|UPDATED|ERROR) ok "crmStatus is honest ($CRM)";;
-  *) no "crmStatus is honest" "a real status" "$CRM";;
+R=$(cat /tmp/rq-lead1.json)
+chk "no success without a durable write" "false" "$(echo "$R" | json '.success')"
+chk "refused with 503"                   "503"   "$CODE"
+chk "SUBMISSION_NOT_STORED"  "SUBMISSION_NOT_STORED" "$(echo "$R" | json '.error.code')"
+#  The student must be given a route that actually works, not a dead end.
+case "$(echo "$R" | json '.error.message')" in
+  *support@richenquest.com*) ok "failure names a working contact route";;
+  *) no "failure names a working contact route" "an email fallback" "absent";;
 esac
 
 # ── 2. Invalid lead ──────────────────────────────────────────────────────────
@@ -83,7 +91,14 @@ R_FALSE=$(curl -s -X POST "$CB/api/leads" -H 'Content-Type: application/json' -d
 R_TRUE=$(curl -s -X POST "$CB/api/leads" -H 'Content-Type: application/json' -d "$P_TRUE")
 chk "missing consent rejected"   "CONSENT_REQUIRED" "$(echo "$R_MISSING" | json '.error.code')"
 chk "consentGiven:false rejected" "CONSENT_REQUIRED" "$(echo "$R_FALSE" | json '.error.code')"
-chk "consentGiven:true accepted"  "true"             "$(echo "$R_TRUE" | json '.success')"
+#  With consent given, the request must clear the CONSENT gate. It then still
+#  meets the durability gate in this harness (no Data Store, no CRM), so the
+#  correct assertion is that it is no longer rejected FOR CONSENT — asserting
+#  success here would be asserting the false 201 this release removed.
+case "$(echo "$R_TRUE" | json '.error.code')" in
+  CONSENT_REQUIRED) no "consentGiven:true clears the consent gate" "not CONSENT_REQUIRED" "CONSENT_REQUIRED";;
+  *) ok "consentGiven:true clears the consent gate";;
+esac
 kill $CPID 2>/dev/null
 
 # ── 4 & 5. Picklist mapping and country normalisation ────────────────────────
@@ -120,18 +135,23 @@ NODE
 echo "6. Double submit"
 E=$(uniq_email)
 P="{\"name\":\"Dup Check\",\"email\":\"$E\",\"phone\":\"9000000001\"}"
-A1=$(curl -s -X POST "$BASE/api/leads" -H 'Content-Type: application/json' -d "$P" | json '.success')
-A2=$(curl -s -X POST "$BASE/api/leads" -H 'Content-Type: application/json' -d "$P" | json '.success')
-chk "first submit accepted" "true" "$A1"
-chk "second submit handled without error" "true" "$A2"
+A1=$(curl -s -X POST "$BASE/api/leads" -H 'Content-Type: application/json' -d "$P" | json '.error.code')
+A2=$(curl -s -X POST "$BASE/api/leads" -H 'Content-Type: application/json' -d "$P" | json '.error.code')
+#  Both are refused for the same honest reason. What matters is that the second
+#  call is handled deterministically — no crash, no PARSE_ERROR, and no
+#  fabricated success on a retry.
+chk "first submit handled deterministically"  "SUBMISSION_NOT_STORED" "$A1"
+chk "second submit handled deterministically" "SUBMISSION_NOT_STORED" "$A2"
 
 # ── 7. CRM unavailable ───────────────────────────────────────────────────────
 echo "7. CRM unavailable"
 R=$(curl -s -X POST "$BASE/api/leads" -H 'Content-Type: application/json' -d "{\"name\":\"No CRM\",\"email\":\"$(uniq_email)\"}")
-CRM=$(echo "$R" | json '.data.zohoSync.crm.status')
-case "$CRM" in
-  SYNCED|CREATED|UPDATED) no "no fabricated CRM success" "not a success status while CRM is down" "$CRM";;
-  *) ok "no fabricated CRM success (status: $CRM)";;
+#  With CRM down and no Data Store the request is refused outright, so there is
+#  no zohoSync block to inspect. The property under test is unchanged: the
+#  response must never imply the lead reached CRM.
+case "$(echo "$R" | json '.success')" in
+  true) no "no fabricated CRM success" "not a success while CRM is down" "success:true";;
+  *) ok "no fabricated CRM success (refused honestly)";;
 esac
 # The whole response must never carry a credential.
 LEAK=$(echo "$R" | grep -ciE 'client_secret|refresh_token|1000\.[0-9a-f]{8}|SESSION_SECRET' || true)

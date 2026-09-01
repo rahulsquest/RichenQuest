@@ -115,26 +115,90 @@ async function catalystTable(tableName) {
   }
 }
 
+/*  Columns whose value is an object or an array in application code.
+ *
+ *  Catalyst Data Store is relational: a column holds a scalar (Text, Int,
+ *  BigInt, Double, Boolean, DateTime). There is no JSON column type. Passing
+ *  an object or array to insertRow is rejected by the API, and mirrorInsert
+ *  logs that at warn level and moves on — so with the tables created but this
+ *  unhandled, Students and Cases rows would still never persist, silently,
+ *  and the failure would look exactly like the in-memory fallback it was
+ *  supposed to replace.
+ *
+ *  These are therefore stored as JSON in Text columns and parsed back on
+ *  hydrate. Listed explicitly rather than sniffed, so the schema the founder
+ *  creates and the code stay provably in step — see DATASTORE-SCHEMA.md. */
+const JSON_COLUMNS = {
+  Students: ['targetCountries', 'targetUniversities', 'academicHistory', 'nextAction', 'zohoCrmSyncStatus'],
+  Cases: ['milestones'],
+  Users: ['invoices'],
+  IntegrationEvents: ['payload', 'data']
+};
+
 /* Strips fields Catalyst manages itself (ROWID, CREATEDTIME, MODIFIEDTIME)
- * and our own internal tracking field before sending a payload to Catalyst. */
-function toCatalystPayload(record) {
+ * and our own internal tracking field before sending a payload to Catalyst,
+ * then serialises the non-scalar columns for that table. */
+function toCatalystPayload(tableName, record) {
   const { ROWID, CREATEDTIME, MODIFIEDTIME, _catalystRowId, ...rest } = record;
+  for (const col of JSON_COLUMNS[tableName] || []) {
+    if (rest[col] !== undefined && rest[col] !== null && typeof rest[col] === 'object') {
+      rest[col] = JSON.stringify(rest[col]);
+    }
+  }
+  /*  A value that is still an object here means a column was added in code
+   *  without being declared above. Fail loudly rather than let Catalyst
+   *  reject the row into a warn log that nobody reads. */
+  for (const [k, v] of Object.entries(rest)) {
+    if (v !== null && typeof v === 'object') {
+      throw new Error(
+        `[dataStore] "${tableName}.${k}" is a ${Array.isArray(v) ? 'array' : 'object'} but is not ` +
+        'declared in JSON_COLUMNS. Declare it and add a Text column, or store a scalar.');
+    }
+  }
   return rest;
+}
+
+/* Inverse of the above, applied to rows read back from Catalyst. */
+function fromCatalystRow(tableName, row) {
+  const rec = { ...row };
+  for (const col of JSON_COLUMNS[tableName] || []) {
+    if (typeof rec[col] === 'string' && rec[col] !== '') {
+      try {
+        rec[col] = JSON.parse(rec[col]);
+      } catch {
+        /*  Leave the raw string. A column that cannot be parsed is a data
+         *  problem worth seeing, not worth crashing startup over. */
+        console.warn(`[dataStore] could not parse JSON column "${tableName}.${col}"`);
+      }
+    }
+  }
+  return rec;
 }
 
 /* Fire-and-forget. The in-memory write has already completed and the
  * response is already built from it by the time this runs — a Data Store
  * outage must never fail a student's request, only be logged. */
 function mirrorInsert(tableName, record) {
-  catalystTable(tableName).then(table => {
-    if (!table) return;
-    table.insertRow(toCatalystPayload(record))
+  /*  Returns a promise resolving to whether the row is now durably stored in
+   *  Catalyst. Callers that must not report success before a durable write —
+   *  lead submission — await it via insertDurable below. Every existing call
+   *  site ignores it and keeps the original fire-and-forget behaviour. */
+  return catalystTable(tableName).then(table => {
+    if (!table) return false;
+    return table.insertRow(toCatalystPayload(tableName, record))
       .then(row => {
         Object.defineProperty(record, '_catalystRowId', {
           value: row.ROWID, writable: true, configurable: true, enumerable: false
         });
+        return true;
       })
-      .catch(e => console.warn(`[dataStore] Catalyst insert failed for "${tableName}":`, e.message));
+      .catch(e => {
+        console.warn(`[dataStore] Catalyst insert failed for "${tableName}":`, e.message);
+        return false;
+      });
+  }).catch(e => {
+    console.warn(`[dataStore] Catalyst insert error for "${tableName}":`, e.message);
+    return false;
   });
 }
 
@@ -142,7 +206,7 @@ function mirrorUpdate(tableName, record) {
   if (!record || !record._catalystRowId) return; // not yet mirrored (or mirror failed) — nothing to update against
   catalystTable(tableName).then(table => {
     if (!table) return;
-    table.updateRow({ ROWID: record._catalystRowId, ...toCatalystPayload(record) })
+    table.updateRow({ ROWID: record._catalystRowId, ...toCatalystPayload(tableName, record) })
       .catch(e => console.warn(`[dataStore] Catalyst update failed for "${tableName}":`, e.message));
   });
 }
@@ -170,7 +234,7 @@ async function hydrate() {
       for await (const row of table.getIterableRows()) rows.push(row);
       if (rows.length) {
         store[name] = rows.map(r => {
-          const rec = { ...r };
+          const rec = fromCatalystRow(name, r);
           Object.defineProperty(rec, '_catalystRowId', {
             value: r.ROWID, writable: true, configurable: true, enumerable: false
           });
@@ -204,6 +268,34 @@ class CatalystDataStore {
         store[tableName].push(enriched);
         mirrorInsert(tableName, enriched);
         return enriched;
+      },
+      /*  Same write, but awaits the Catalyst round-trip and reports whether
+       *  the row is actually durable.
+       *
+       *  For a flow that tells a student their request was received, "we put
+       *  it in memory" is not a durable write — the process restarts on every
+       *  deploy and on scale-down, and the record is gone. A caller that makes
+       *  a promise to a student uses this and decides honestly from the
+       *  result; everything else keeps using insert() unchanged, so no
+       *  existing call site — including the ownership checks — is touched.
+       *
+       *  { record, durable } — durable is false when Data Store is
+       *  unconfigured, the table does not exist, or the write was rejected. */
+      insertDurable: async (record) => {
+        const enriched = {
+          ...record,
+          ROWID: 'ROW_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
+          CREATEDTIME: new Date().toISOString(),
+          MODIFIEDTIME: new Date().toISOString()
+        };
+        store[tableName].push(enriched);
+        let durable = false;
+        try {
+          durable = await mirrorInsert(tableName, enriched);
+        } catch (e) {
+          console.warn(`[dataStore] durable insert failed for "${tableName}":`, e.message);
+        }
+        return { record: enriched, durable: Boolean(durable) };
       },
       update: (predicate, updates) => {
         const index = store[tableName].findIndex(predicate);
@@ -252,6 +344,22 @@ class CatalystDataStore {
    */
   static getStorageMode(tableName) {
     return _tableAvailable[tableName] === true ? 'PERSISTENT' : 'IN_MEMORY_FALLBACK';
+  }
+
+  /*  Exposed for scripts/datastore-schema-regression.sh.
+   *
+   *  The serialisation these wrap only executes when Catalyst is actually
+   *  reachable, which it is not locally and not while AppSail is down — so
+   *  without a seam it would ship to production never having run once. That
+   *  is precisely the code that must not be taken on trust: if it is wrong,
+   *  every Students and Cases row fails to persist and the symptom is an
+   *  in-memory fallback that looks normal. */
+  static _serializeForCatalyst(tableName, record) {
+    return toCatalystPayload(tableName, record);
+  }
+
+  static _deserializeFromCatalyst(tableName, row) {
+    return fromCatalystRow(tableName, row);
   }
 
   static getStorageReport() {
