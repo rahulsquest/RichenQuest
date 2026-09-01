@@ -4,6 +4,7 @@ import { Bell, Menu, User, Sparkles, ArrowRight, ShieldCheck, CheckCircle2 } fro
 import { useAuth } from '../context/AuthContext';
 import { useNotifications } from '../context/NotificationContext';
 import { ZohoSyncBadge } from '../components/FileUpload';
+import { internalPath } from '../utils/internalPath';
 
 export default function TopHeader({ onOpenSidebar }) {
   const { student, user } = useAuth();
@@ -29,7 +30,7 @@ export default function TopHeader({ onOpenSidebar }) {
             <span className="font-bold text-amber-800">Next Action:</span>
             <span className="truncate max-w-xs">{student.nextAction.title}</span>
             <Link
-              to={student.nextAction.targetRoute || '/documents'}
+              to={internalPath(student.nextAction.targetRoute, '/documents')}
               className="font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-0.5 ml-1"
             >
               Complete <ArrowRight className="w-3 h-3" />

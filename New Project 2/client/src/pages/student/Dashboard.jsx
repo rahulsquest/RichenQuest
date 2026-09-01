@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { internalPath } from '../../utils/internalPath';
 import {
   Calendar,
   FileText,
@@ -123,7 +124,7 @@ export default function Dashboard() {
             <Button
               size="md"
               variant="secondary"
-              onClick={() => navigate(nextAction.targetRoute || '/profile')}
+              onClick={() => navigate(internalPath(nextAction.targetRoute, '/profile'))}
               className="bg-white text-indigo-950 hover:bg-slate-100 font-bold shrink-0 text-xs py-2 px-4 shadow-sm cursor-pointer"
             >
               Complete Action <ArrowRight className="w-4 h-4 ml-1" />

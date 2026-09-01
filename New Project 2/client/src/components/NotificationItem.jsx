@@ -2,6 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { Bell, CheckCircle2, Calendar, FileText, CreditCard, ArrowRight } from 'lucide-react';
 import { formatDateTime } from '../utils/formatters';
+import { internalPath } from '../utils/internalPath';
 
 export function NotificationItem({ notification, onMarkRead }) {
   if (!notification) return null;
@@ -50,7 +51,7 @@ export function NotificationItem({ notification, onMarkRead }) {
         <div className="flex items-center gap-4 mt-2.5">
           {notification.actionUrl && (
             <Link
-              to={notification.actionUrl}
+              to={internalPath(notification.actionUrl, '/dashboard')}
               className="inline-flex items-center gap-1 text-xs font-semibold text-indigo-600 hover:text-indigo-800"
             >
               View Details <ArrowRight className="w-3 h-3" />
