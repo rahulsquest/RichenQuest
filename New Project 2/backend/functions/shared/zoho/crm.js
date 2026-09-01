@@ -131,6 +131,16 @@ class ZohoCrmService {
              * picklists above loses no information. */
             Description: `Study Interest: ${lead.studyInterest || 'General Study Abroad'} | Target University: ${lead.university || 'N/A'} | Program: ${lead.program || 'N/A'} | Submitted via: ${lead.source || 'Website Inquiry Form'} | Message: ${lead.message || ''}`,
             ...(country ? { Country: country } : {}),
+            /*  Consent into the real Leads consent fields — structured and
+             *  filterable, never Description. Passed through from the lead
+             *  record, which got them from consent.recordFor('Leads') with a
+             *  server-generated timestamp. Absent entirely while the consent
+             *  gate is off, so no empty values are written. */
+            ...(lead.Consent_Given ? {
+              Consent_Given: true,
+              Consent_Timestamp: lead.Consent_Timestamp,
+              Consent_Policy_Version: lead.Consent_Policy_Version
+            } : {}),
             ...(existing ? { id: existing.id } : {})
           }
         ]

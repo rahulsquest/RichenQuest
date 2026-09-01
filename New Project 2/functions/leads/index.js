@@ -49,19 +49,16 @@ async function handleLeads(req, res) {
       source,
       status: 'NEW_LEAD',
       createdAt: new Date().toISOString(),
-      /*  Consent is recorded on the local lead with a server-generated
-       *  timestamp and the approved policy version — never a client-supplied
-       *  one, which would be as untrustworthy as a client-supplied score.
+      /*  Consent recorded with a server-generated timestamp and the approved
+       *  policy version — never a client-supplied one, which would be as
+       *  untrustworthy as a client-supplied score.
        *
-       *  SCHEMA GAP, deliberately not worked around: Consent_Given_On and
-       *  Consent_Version exist on the CRM Contacts module but NOT on Leads
-       *  (verified 2026-09-01 — COQL returns invalid-column for Leads). So
-       *  consent is captured and stored here, and is NOT yet mirrored to the
-       *  CRM lead record. Writing it into Description instead would make it
-       *  unfilterable and unauditable, which is the same class of mistake as
-       *  the referrer name in a picklist. The two fields need adding to the
-       *  Leads module; until then this is the record of consent. */
-      ...(consent.isReady() && consentGiven ? consent.record() : {})
+       *  Leads field names differ from Contacts (Consent_Given /
+       *  Consent_Timestamp / Consent_Policy_Version vs Consent_Given_On /
+       *  Consent_Version), so recordFor names them correctly per module.
+       *  These same values go to CRM below, into structured filterable
+       *  fields — never Description or a note. */
+      ...(consent.isReady() && consentGiven ? consent.recordFor('Leads') : {})
     });
 
     // 1. Sync to Zoho CRM Leads Module (with duplicate email search)
