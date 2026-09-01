@@ -6,6 +6,7 @@
 const CatalystDataStore = require('../shared/dataStore');
 const { sendSuccess, sendError } = require('../shared/response');
 const ZohoClient = require('../shared/zohoClient');
+const consent = require('../shared/consent');
 
 const leadsTable = CatalystDataStore.getTable('Leads');
 
@@ -15,10 +16,21 @@ async function handleLeads(req, res) {
 
   // POST /api/leads
   if (method === 'POST') {
-    const { name, email, phone, country, university, program, studyInterest, message, source = 'Website Inquiry Form' } = req.body || {};
+    const { name, email, phone, country, university, program, studyInterest, message, consentGiven, source = 'Website Inquiry Form' } = req.body || {};
 
     if (!name || !email) {
       return sendError(res, 'VALIDATION_ERROR', 'Name and Email are mandatory for submitting an inquiry.', 400);
+    }
+
+    /*  Server-side consent enforcement. The forms block submission too, but a
+     *  checkbox is a courtesy, not a control — this is the one that actually
+     *  stops a record being created. Refusing here means nothing downstream
+     *  (local store, CRM sync, Flow event) ever sees an unconsented lead.
+     *  Inert while consent.isReady() is false, which it is until advocate
+     *  wording exists, so today's behaviour is unchanged. */
+    if (consent.isReady() && !consentGiven) {
+      return sendError(res, 'CONSENT_REQUIRED',
+        'Please review and accept the consent statement to submit an inquiry.', 400);
     }
 
     const normalizedEmail = email.toLowerCase().trim();
@@ -36,7 +48,20 @@ async function handleLeads(req, res) {
       message: message || '',
       source,
       status: 'NEW_LEAD',
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
+      /*  Consent is recorded on the local lead with a server-generated
+       *  timestamp and the approved policy version — never a client-supplied
+       *  one, which would be as untrustworthy as a client-supplied score.
+       *
+       *  SCHEMA GAP, deliberately not worked around: Consent_Given_On and
+       *  Consent_Version exist on the CRM Contacts module but NOT on Leads
+       *  (verified 2026-09-01 — COQL returns invalid-column for Leads). So
+       *  consent is captured and stored here, and is NOT yet mirrored to the
+       *  CRM lead record. Writing it into Description instead would make it
+       *  unfilterable and unauditable, which is the same class of mistake as
+       *  the referrer name in a picklist. The two fields need adding to the
+       *  Leads module; until then this is the record of consent. */
+      ...(consent.isReady() && consentGiven ? consent.record() : {})
     });
 
     // 1. Sync to Zoho CRM Leads Module (with duplicate email search)

@@ -7,6 +7,8 @@ import { Card } from '../../components/Card';
 import { useToast } from '../../context/ToastContext';
 import leadService from '../../services/leadService';
 import { TARGET_COUNTRIES, DEGREE_LEVELS } from '../../constants/entities';
+import ConsentCheckbox from '../../components/ConsentCheckbox';
+import { consentGateActive } from '../../config/consent';
 
 export default function Inquiry() {
   const [searchParams] = useSearchParams();
@@ -25,7 +27,8 @@ export default function Inquiry() {
     program: searchParams.get('degree') || 'Postgraduate (Master\'s / MSc / MA / MEng / MBA)',
     university: '',
     studyInterest: 'Computer Science / STEM',
-    message: ''
+    message: '',
+    consentGiven: false
   });
 
   useEffect(() => {
@@ -45,6 +48,12 @@ export default function Inquiry() {
     e.preventDefault();
     if (!formData.name || !formData.email) {
       addToast('Name and Email are required', 'warning');
+      return;
+    }
+    /* Blocked before any network call. The server refuses too, so a
+     * bypassed checkbox still cannot create a record. */
+    if (consentGateActive() && !formData.consentGiven) {
+      addToast('Please review and accept the consent statement to continue.', 'warning');
       return;
     }
 
@@ -195,6 +204,11 @@ export default function Inquiry() {
             onChange={handleChange}
             placeholder="Tell us about your current GPA, GRE/IELTS score status, budget, or preferred intake..."
             rows={3}
+          />
+
+          <ConsentCheckbox
+            checked={formData.consentGiven}
+            onChange={(v) => setFormData({ ...formData, consentGiven: v })}
           />
 
           <Button

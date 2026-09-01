@@ -5,6 +5,8 @@ import Button from '../../components/Button';
 import { useToast } from '../../context/ToastContext';
 import leadService from '../../services/leadService';
 import env from '../../config/environment';
+import ConsentCheckbox from '../../components/ConsentCheckbox';
+import { consentGateActive } from '../../config/consent';
 
 export default function Contact() {
   const { addToast } = useToast();
@@ -15,7 +17,8 @@ export default function Contact() {
     email: '',
     phone: '',
     country: '',
-    message: ''
+    message: '',
+    consentGiven: false
   });
 
   const handleChange = (e) => {
@@ -24,6 +27,11 @@ export default function Contact() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    /* Blocked before any network call; the server refuses too. */
+    if (consentGateActive() && !formData.consentGiven) {
+      addToast('Please review and accept the consent statement to continue.', 'warning');
+      return;
+    }
     setLoading(true);
     try {
       await leadService.submitInquiry({
@@ -164,6 +172,11 @@ export default function Contact() {
                 placeholder="Share your target degree, destination country, or any questions regarding scholarships..."
                 rows={4}
                 required
+              />
+
+              <ConsentCheckbox
+                checked={formData.consentGiven}
+                onChange={(v) => setFormData({ ...formData, consentGiven: v })}
               />
 
               <div className="pt-2">
