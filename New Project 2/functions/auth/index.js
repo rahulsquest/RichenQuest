@@ -326,16 +326,41 @@ async function handleAuth(req, res) {
       const resetToken = crypto.randomBytes(24).toString('hex');
       usersTable.update(u => u.userId === user.userId, { resetToken, resetTokenExpiry: Date.now() + 3600000 });
 
-      // Emit Zoho Flow event for password reset email delivery
+      /*  Deliberately not awaited. Awaiting would make the response slower
+       *  whenever the account exists (a network call happens) and faster when
+       *  it does not — reintroducing by timing exactly the enumeration channel
+       *  the constant wording below exists to close.
+       *
+       *  The result is still inspected, because Flow is the only thing that
+       *  would deliver this email and it returns UNCONFIGURED when no webhook
+       *  is set — which is the case today. Without this, reset requests fail
+       *  in complete silence: the student waits for a mail that will never
+       *  arrive and has no other route back into their account.
+       *
+       *  The token is never logged. It is a password-reset credential, and a
+       *  log reader holding it could take over the account. */
       ZohoClient.emitFlowEvent('PASSWORD_RESET_REQUESTED', {
         userId: user.userId,
         email: user.email,
         resetToken
-      });
+      }).then(r => {
+        if (r?.status !== 'DISPATCHED') {
+          console.error('[auth] PASSWORD RESET EMAIL NOT DELIVERED — assist manually:', JSON.stringify({
+            email: user.email,
+            flowStatus: r?.status || 'UNKNOWN',
+            at: new Date().toISOString()
+          }));
+        }
+      }).catch(e => console.error('[auth] password reset dispatch threw:', e.message));
     }
 
-    // Always return success for security (prevents user enumeration)
-    return sendSuccess(res, {}, 'If an account exists with this email address, a password reset link has been dispatched.');
+    /*  Constant response regardless of whether the account exists — that part
+     *  was right and is kept. What changed is the claim: this used to say the
+     *  link "has been dispatched", which asserts a delivery that nothing here
+     *  verifies and that does not happen at all while Flow is unconfigured.
+     *  It now states the intent rather than a completed send, and names a real
+     *  way to reach a human when the mail does not arrive. */
+    return sendSuccess(res, {}, 'If an account exists with this email address, a password reset link will be sent to it. If it does not arrive shortly, please contact support@richenquest.com.');
   }
 
   // POST /api/auth/verify-email

@@ -66,13 +66,20 @@ async function handleDocuments(req, res) {
 
     const newDocId = `DOC_RQ_${Date.now().toString().slice(-6)}`;
 
-    // Prepare buffer if base64 provided
+    /*  A malformed base64 body used to be swallowed with console.warn, leaving
+     *  fileBuffer null — and the flow carried on to report the document
+     *  "uploaded successfully" when the student's file never existed. Reject
+     *  it so the student can send the file again. */
     let fileBuffer = null;
     if (fileBase64) {
       try {
         fileBuffer = Buffer.from(fileBase64.split(',')[1] || fileBase64, 'base64');
       } catch (e) {
         console.warn('Could not parse fileBase64:', e.message);
+      }
+      if (!fileBuffer || fileBuffer.length === 0) {
+        return sendError(res, 'VALIDATION_ERROR',
+          'That file could not be read. Please try selecting and uploading it again.', 400);
       }
     }
 
@@ -82,6 +89,35 @@ async function handleDocuments(req, res) {
       mimetype: mimeType,
       buffer: fileBuffer
     });
+
+    /*  SILENT-LOSS GUARD — the most damaging instance of it in this codebase.
+     *
+     *  When WorkDrive is UNCONFIGURED or the upload errors, the bytes are not
+     *  stored anywhere. The old code still inserted a Documents row marked
+     *  UNDER_REVIEW / "Awaiting counselor verification", notified the student,
+     *  and answered "Document uploaded successfully and queued for counselor
+     *  review." A student could submit a passport or a transcript, be told it
+     *  was received, and have nothing exist — while a counsellor saw a review
+     *  item with no file behind it. Admission and visa deadlines turn that
+     *  into a missed intake.
+     *
+     *  If the student sent bytes and we could not store them, that is a
+     *  failure and is reported as one: no row, no notification, no false queue
+     *  entry. Metadata-only calls (no fileBase64) are a separate, legitimate
+     *  bridge and still pass through. */
+    const fileStored = Boolean(workDriveResult?.workDriveFileId);
+    if (fileBuffer && !fileStored) {
+      console.error('[documents] FILE NOT STORED — student upload dropped:', JSON.stringify({
+        studentId,
+        documentType,
+        fileName,
+        workDriveStatus: workDriveResult?.status || 'UNKNOWN',
+        at: new Date().toISOString()
+      }));
+      return sendError(res, 'STORAGE_UNAVAILABLE',
+        'We could not store your document right now, so it has not been submitted. Please try again shortly, or email it to support@richenquest.com.',
+        503);
+    }
 
     const newDoc = documentsTable.insert({
       documentId: newDocId,
