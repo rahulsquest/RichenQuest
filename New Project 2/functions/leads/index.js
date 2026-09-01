@@ -96,6 +96,39 @@ async function handleLeads(req, res) {
       zohoCrmLeadId: crmSyncResult?.crmLeadId || null
     });
 
+    /*  SILENT-LOSS GUARD.
+     *
+     *  This route used to answer, unconditionally, "A RichenQuest counselor
+     *  will review your profile shortly." That sentence is only true when the
+     *  lead actually reached CRM. It can fail to:
+     *    - CRM unconfigured or erroring (caught and logged, never surfaced)
+     *    - the local store, which mirrors to Catalyst Data Store only when
+     *      those tables exist. They do not yet, so a lead currently lives in
+     *      process memory and does not survive a restart or redeploy.
+     *  Nothing re-processes a failed sync — zohoCrmStatus is recorded but no
+     *  reconciliation job reads it.
+     *
+     *  So a student could be promised a counsellor while the record quietly
+     *  evaporated. The message is now conditional on what actually happened,
+     *  and an unsynced lead is logged at error level with the details needed
+     *  to recover it by hand — when nothing durable holds the record, the log
+     *  IS the record. That is a deliberate PII-in-logs trade: losing a
+     *  student's enquiry entirely is the worse outcome. */
+    const crmOk = ['SYNCED', 'CREATED', 'UPDATED'].includes(crmSyncResult?.status);
+
+    if (!crmOk) {
+      console.error('[leads] NOT SYNCED TO CRM — recover manually:', JSON.stringify({
+        leadId,
+        name: name.trim(),
+        email: normalizedEmail,
+        phone: phone ? phone.trim() : '',
+        country: country || null,
+        program: program || null,
+        crmStatus: crmSyncResult?.status || 'UNKNOWN',
+        at: new Date().toISOString()
+      }));
+    }
+
     return sendSuccess(res, {
       lead: {
         leadId,
@@ -110,7 +143,9 @@ async function handleLeads(req, res) {
         crm: crmSyncResult,
         flow: flowResult
       }
-    }, 'Your study abroad inquiry has been submitted successfully. A RichenQuest counselor will review your profile shortly.', 201);
+    }, crmOk
+      ? 'Your study abroad inquiry has been submitted successfully. A RichenQuest counselor will review your profile shortly.'
+      : 'Your study abroad inquiry has been received. Our team will contact you shortly.', 201);
   }
 
   /*  GET is staff-only. POST above is the PUBLIC website contact form and must
