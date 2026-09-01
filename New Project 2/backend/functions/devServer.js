@@ -64,6 +64,42 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Catalyst-Client']
 }));
 
+/*  Security headers.
+ *
+ *  Safe to make this strict because this process serves JSON and nothing
+ *  else — verified: no express.static, no sendFile, no template rendering
+ *  anywhere in the app. The website is built by Vite and served by Catalyst
+ *  Slate from a different origin, so none of these headers reach, or can
+ *  break, the frontend. They only harden API responses.
+ *
+ *  Deliberately omitted: anything that constrains what a page may load
+ *  (script-src, style-src, connect-src). Those belong on the Slate response
+ *  that actually serves the document; setting them here would do nothing
+ *  useful and would mislead the next reader into thinking the site is
+ *  covered. */
+app.use((req, res, next) => {
+  //  A JSON API has no legitimate reason to be interpreted as any other type.
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  //  Nothing here is meant to be framed; default-src 'none' is the modern
+  //  equivalent but X-Frame-Options still covers older browsers.
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('Referrer-Policy', 'no-referrer');
+  //  An API response should never load a resource of any kind. If a response
+  //  is ever rendered as a document, this makes it inert.
+  res.setHeader('Content-Security-Policy', "default-src 'none'; frame-ancestors 'none'");
+
+  /*  HSTS only on connections that already arrived over TLS. Catalyst
+   *  terminates TLS ahead of this process, so req.secure depends on the
+   *  trust-proxy setting above; x-forwarded-proto is checked too rather than
+   *  relying on that alone. Scoped to this host — no includeSubDomains and no
+   *  preload, both of which commit domains this API does not own and are not
+   *  reversible on the timescale of a mistake. */
+  if (req.secure || req.get('x-forwarded-proto') === 'https') {
+    res.setHeader('Strict-Transport-Security', 'max-age=15552000');
+  }
+  next();
+});
+
 /*  Must be registered BEFORE the global parser below. body-parser marks the
  *  request once parsed and later parsers skip it, so whichever runs first owns
  *  the limit — a route-level parser mounted after the global one is silently a
