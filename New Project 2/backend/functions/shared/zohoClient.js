@@ -54,11 +54,17 @@ class ZohoClient {
 
   // Delegated methods
   static async emitFlowEvent(event, payload) {
-    // Also save event in Catalyst Data Store
+    /*  The audit row is bounded; the payload sent onward to Flow is NOT.
+     *  Only Catalyst has the 10,000-character text ceiling, so the real
+     *  payload still reaches Flow in full — it is the stored copy that gets a
+     *  marker when it is too large, and the marker says so out loud.
+     *
+     *  `eventTimestamp`, not `timestamp`: Catalyst rejects `timestamp` as a
+     *  reserved keyword, the same way it rejects `read` and `date`. */
     CatalystDataStore.getTable('IntegrationEvents').insert({
       event,
-      timestamp: new Date().toISOString(),
-      payload
+      eventTimestamp: new Date().toISOString(),
+      payload: CatalystDataStore.boundAuditValue(payload, `IntegrationEvents.payload (${event})`)
     });
     return zohoFlow.emitEvent(event, payload);
   }

@@ -36,10 +36,15 @@ async function handleWebhooks(req, res) {
   console.log(`[Inbound Zoho Webhook] Received event: ${event}`, data);
 
   // Store in IntegrationEvents audit log
+  /*  An inbound webhook body is whatever Zoho sends, under the 10 MB request
+   *  limit. Bounded before storage so a large body cannot be silently cut in
+   *  half by Catalyst's text ceiling — the event, direction and receivedAt
+   *  columns are unaffected, so the audit trail still records what arrived
+   *  and when even when the body itself was too big to keep inline. */
   CatalystDataStore.getTable('IntegrationEvents').insert({
     direction: 'INBOUND',
     event,
-    data,
+    data: CatalystDataStore.boundAuditValue(data, `IntegrationEvents.data (${event})`),
     receivedAt: new Date().toISOString()
   });
 

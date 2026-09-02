@@ -175,6 +175,7 @@ export default function Contact() {
                 onChange={handleChange}
                 placeholder="Share your target degree, destination country, or any questions regarding scholarships..."
                 rows={4}
+                maxLength={9000}
                 required
               />
 

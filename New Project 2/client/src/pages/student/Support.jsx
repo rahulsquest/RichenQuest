@@ -146,6 +146,7 @@ export default function Support() {
                 onChange={(e) => setFormData({ ...formData, message: e.target.value })}
                 placeholder="Provide complete details so your counselor can evaluate your case..."
                 rows={4}
+                maxLength={9000}
                 required
               />
 

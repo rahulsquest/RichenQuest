@@ -33,6 +33,26 @@ async function handleLeads(req, res) {
       return sendError(res, 'VALIDATION_ERROR', 'Please enter a valid email address.', 400);
     }
 
+    /*  A student's enquiry is the record itself, not a log line, so it is
+     *  refused rather than trimmed.
+     *
+     *  Catalyst `text` silently truncates above 10,000 characters — proven by
+     *  write/read/SHA-256 test, see CATALYST_TEXT_SAFE_MAX in dataStore.js.
+     *  The request body allows 64 KB and nothing clamped `message` before it
+     *  was stored, so a long enquiry would have been cut in half with the
+     *  student told it was received. Truncating quietly would be the same
+     *  false success this route already refuses to give.
+     *
+     *  So: reject, say the actual limit and their actual length, and let them
+     *  shorten it. Nothing is written. */
+    const messageStr = message ? String(message) : '';
+    if (messageStr.length > CatalystDataStore.TEXT_SAFE_MAX) {
+      return sendError(res, 'MESSAGE_TOO_LONG',
+        `Your message is ${messageStr.length} characters. Please shorten it to ` +
+        `${CatalystDataStore.TEXT_SAFE_MAX} characters or fewer, or email the full details to support@richenquest.com.`,
+        400);
+    }
+
     /*  Server-side consent enforcement. The forms block submission too, but a
      *  checkbox is a courtesy, not a control — this is the one that actually
      *  stops a record being created. Refusing here means nothing downstream

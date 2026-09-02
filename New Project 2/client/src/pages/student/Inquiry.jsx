@@ -210,6 +210,7 @@ export default function Inquiry() {
             onChange={handleChange}
             placeholder="Tell us about your current GPA, GRE/IELTS score status, budget, or preferred intake..."
             rows={3}
+            maxLength={9000}
           />
 
           <ConsentCheckbox

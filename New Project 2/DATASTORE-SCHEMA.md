@@ -148,7 +148,7 @@ becomes a silent write failure on the single most compliance-sensitive record yo
 | Column | Type | Mandatory | Notes |
 |---|---|---|---|
 | `event` | Text(64) | yes | |
-| `timestamp` | Text(32) | no | ISO-8601 |
+| `eventTimestamp` | Text(32) | no | ISO-8601. Named `eventTimestamp`, not `timestamp` — Catalyst rejects `timestamp` as a reserved keyword |
 | `receivedAt` | Text(32) | no | ISO-8601 |
 | `direction` | Text(16) | no | inbound / outbound |
 | `payload` | Text(32000) | no | **JSON** |

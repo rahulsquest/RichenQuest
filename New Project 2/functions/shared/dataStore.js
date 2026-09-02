@@ -128,6 +128,26 @@ async function catalystTable(tableName) {
  *  These are therefore stored as JSON in Text columns and parsed back on
  *  hydrate. Listed explicitly rather than sniffed, so the schema the founder
  *  creates and the code stay provably in step — see DATASTORE-SCHEMA.md. */
+/*  The hard ceiling on any Catalyst `text` column.
+ *
+ *  PROVEN, not assumed. Values of 9,000 / 10,000 / 12,000 / 16,000 / 32,000
+ *  characters were written to a Development table and read back through the
+ *  Catalyst REST API. 9,000 and 10,000 returned byte-identical (SHA-256
+ *  match). 12,000, 16,000 and 32,000 all came back at exactly 10,000
+ *  characters, and each one's hash matched the hash of its own first 10,000
+ *  characters — clean prefix truncation. Two independent read paths agreed,
+ *  and a single flipped character was correctly detected by the comparison,
+ *  so the test could tell a real difference from a false match.
+ *
+ *  The write reports SUCCESS. Nothing errors. That is what makes it dangerous:
+ *  without this limit a student's enquiry is cut in half and everyone —
+ *  student, counsellor, logs — is told it worked.
+ *
+ *  9,000 rather than 10,000 leaves margin, because the boundary was measured
+ *  in characters and a multi-byte character may well be counted in bytes by
+ *  the platform. Anything at or below this is verified safe. */
+const CATALYST_TEXT_SAFE_MAX = 9000;
+
 const JSON_COLUMNS = {
   Students: ['targetCountries', 'targetUniversities', 'academicHistory', 'nextAction', 'zohoCrmSyncStatus'],
   Cases: ['milestones'],
@@ -360,6 +380,46 @@ class CatalystDataStore {
 
   static _deserializeFromCatalyst(tableName, row) {
     return fromCatalystRow(tableName, row);
+  }
+
+  /** The proven-safe ceiling for any Catalyst text column. */
+  static get TEXT_SAFE_MAX() {
+    return CATALYST_TEXT_SAFE_MAX;
+  }
+
+  /*  Bound a value destined for an AUDIT column so Catalyst can never
+   *  silently cut it.
+   *
+   *  Only for IntegrationEvents.payload / .data, which are a debug log: the
+   *  code reads them as "the last 10 events" and never reconstructs anything
+   *  from them, so the full body is not required for the app to work. That is
+   *  what makes replacing an oversized body acceptable here — and is exactly
+   *  why the same treatment is NOT applied to a student's enquiry, which is
+   *  the record itself and is rejected at the door instead.
+   *
+   *  An oversized value is replaced by a marker that is itself valid JSON,
+   *  fits the limit, and says plainly what happened and how big the original
+   *  was. Silent truncation becomes a visible, queryable fact. No extra
+   *  Catalyst columns are needed to record it. */
+  static boundAuditValue(value, label) {
+    if (value === null || value === undefined) return value;
+    const serialised = typeof value === 'string' ? value : JSON.stringify(value);
+    if (serialised === undefined) return null;
+    if (serialised.length <= CATALYST_TEXT_SAFE_MAX) return value;
+
+    console.warn(
+      `[dataStore] ${label} is ${serialised.length} chars, above the ${CATALYST_TEXT_SAFE_MAX} ` +
+      'safe limit for a Catalyst text column; storing a truncation marker instead of the body.');
+
+    return {
+      _truncated: true,
+      _reason: 'exceeded CATALYST_TEXT_SAFE_MAX for a Catalyst text column',
+      _originalLength: serialised.length,
+      _limit: CATALYST_TEXT_SAFE_MAX,
+      /*  A prefix small enough that the marker as a whole stays well inside
+       *  the limit, so the marker itself can never be the thing truncated. */
+      _preview: serialised.slice(0, 2000)
+    };
   }
 
   static getStorageReport() {

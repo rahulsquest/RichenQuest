@@ -93,6 +93,32 @@ try {
     ? ok('insertDurable still returns the in-memory record for the response')
     : bad('insertDurable did not return a usable record');
 
+  /* ---- 4b. the 10,000-character Catalyst text ceiling ------------------ */
+  /*  Catalyst `text` silently truncates above 10,000 characters — proven by
+   *  write/read/SHA-256 test against a Development table. These guard the two
+   *  different answers that finding demands: an audit log gets a visible
+   *  marker, a student's enquiry gets refused. */
+  DS.TEXT_SAFE_MAX === 9000
+    ? ok('TEXT_SAFE_MAX is 9000, below the proven 10000 ceiling')
+    : bad(`TEXT_SAFE_MAX is ${DS.TEXT_SAFE_MAX}, expected 9000`);
+
+  const small = { a: 'x'.repeat(100) };
+  DS.boundAuditValue(small, 'test') === small
+    ? ok('audit value under the limit passes through untouched')
+    : bad('a small audit value was altered');
+
+  const big = { a: 'x'.repeat(40000) };
+  const bounded = DS.boundAuditValue(big, 'test');
+  bounded && bounded._truncated === true && bounded._originalLength > 40000
+    ? ok('oversized audit value is replaced by a truncation marker')
+    : bad('oversized audit value was not marked');
+  JSON.stringify(bounded).length <= DS.TEXT_SAFE_MAX
+    ? ok('the truncation marker itself fits inside the safe limit')
+    : bad('the marker exceeds the limit and would itself be truncated');
+  bounded && typeof bounded._preview === 'string' && bounded._preview.length === 2000
+    ? ok('marker keeps a bounded preview of the original')
+    : bad('marker preview missing or wrong size');
+
   /* ---- 5. the 201 path, with durability stubbed present ---------------- */
   /*  The refusal path is covered by the readiness harness, which genuinely
    *  has no durable store. The accept path cannot be reached there, so it is
