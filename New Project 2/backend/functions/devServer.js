@@ -238,9 +238,30 @@ app.get('/api/health', async (req, res) => {
 });
 
 // Direct Catalyst Route Handlers using express sub-routing
-app.use('/api/me', (req, res) => {
+/*  Every route handler is async, and each was invoked as handler(req, res)
+ *  with the returned promise discarded. Express 4 does not catch an async
+ *  rejection, so a throw inside a handler meant the response was simply never
+ *  sent: the request hung until the platform killed it. Observed on the
+ *  deployed backend — signup returned AppSail's "Execution Time Exceeded"
+ *  after 36 seconds because generateToken() throws when SESSION_SECRET is
+ *  unset, and nothing caught it.
+ *
+ *  A student waiting 36 seconds for a timeout is strictly worse than being
+ *  told plainly that something failed. This routes every rejection to the
+ *  error handler below. */
+function run(handler) {
+  return (req, res, next) => {
+    try {
+      Promise.resolve(handler(req, res)).catch(next);
+    } catch (e) {
+      next(e);
+    }
+  };
+}
+
+app.use('/api/me', (req, res, next) => {
   req.url = '/me';
-  authHandler(req, res);
+  run(authHandler)(req, res, next);
 });
 
 /*  Login is the brute-force surface: unauthenticated, unlimited attempts, and
@@ -262,8 +283,8 @@ app.use('/api/auth', (req, res, next) => {
   if (p === '/login' || p === '' || p === '/reset-password') return loginRateLimit(req, res, next);
   if (p === '/signup') return signupRateLimit(req, res, next);
   return next();
-}, (req, res) => {
-  authHandler(req, res);
+}, (req, res, next) => {
+  run(authHandler)(req, res, next);
 });
 
 /*  The only public, unauthenticated route that writes to CRM, so it is the one
@@ -278,41 +299,41 @@ app.use('/api/leads', (req, res, next) => {
   if (req.method === 'POST') return leadsRateLimit(req, res, next);
   return next();
 }, (req, res) => {
-  leadsHandler(req, res);
+  run(leadsHandler)(req, res, next);
 });
 
-app.use('/api/students', requireStudent, (req, res) => {
+app.use('/api/students', requireStudent, (req, res, next) => {
   const parts = req.url.split('?')[0].split('/').filter(Boolean);
   if (parts.length > 0) req.params = { id: parts[0] };
-  studentsHandler(req, res);
+  run(studentsHandler)(req, res, next);
 });
 
-app.use('/api/cases', requireStudent, (req, res) => {
+app.use('/api/cases', requireStudent, (req, res, next) => {
   const parts = req.url.split('?')[0].split('/').filter(Boolean);
   if (parts.length > 0) req.params = { id: parts[0] };
-  casesHandler(req, res);
+  run(casesHandler)(req, res, next);
 });
 
-app.use('/api/bookings', requireStudent, (req, res) => {
+app.use('/api/bookings', requireStudent, (req, res, next) => {
   const parts = req.url.split('?')[0].split('/').filter(Boolean);
   if (parts.length > 0) req.params = { id: parts[0] };
-  bookingsHandler(req, res);
+  run(bookingsHandler)(req, res, next);
 });
 
-app.use('/api/documents', requireStudent, (req, res) => {
+app.use('/api/documents', requireStudent, (req, res, next) => {
   const parts = req.url.split('?')[0].split('/').filter(Boolean);
   if (parts.length > 0) req.params = { id: parts[0] };
-  documentsHandler(req, res);
+  run(documentsHandler)(req, res, next);
 });
 
-app.use('/api/payments', requireStudent, (req, res) => {
+app.use('/api/payments', requireStudent, (req, res, next) => {
   const parts = req.url.split('?')[0].split('/').filter(Boolean);
   if (parts.length > 0) req.params = { id: parts[0] };
-  paymentsHandler(req, res);
+  run(paymentsHandler)(req, res, next);
 });
 
-app.use('/api/notifications', requireStudent, (req, res) => {
-  notificationsHandler(req, res);
+app.use('/api/notifications', requireStudent, (req, res, next) => {
+  run(notificationsHandler)(req, res, next);
 });
 
 /*  RichenQuest intelligence. Every route derives the student's record id from
@@ -320,7 +341,7 @@ app.use('/api/notifications', requireStudent, (req, res) => {
 ['home','profile','profile-score','opportunities','roadmap','report','mentor','request'].forEach(r => {
   app.use(`/api/${r}`, (req, res) => {
     req.url = `/${r}`;
-    intelligenceHandler(req, res);
+    run(intelligenceHandler)(req, res, next);
   });
 });
 
@@ -334,14 +355,14 @@ app.use('/api/notifications', requireStudent, (req, res) => {
  *  the student's own Profile page (zohoService.js), so requireStudent is
  *  the right gate — and it validates the STU_ id in the URL is the
  *  caller's own automatically, the same as every other route below. */
-app.use('/api/crm', requireStudent, (req, res) => {
+app.use('/api/crm', requireStudent, (req, res, next) => {
   const parts = req.url.split('?')[0].split('/').filter(Boolean);
   if (parts[0] === 'sync' && parts[1]) req.params = { studentId: parts[1] };
-  crmHandler(req, res);
+  run(crmHandler)(req, res, next);
 });
 
-app.use('/api/webhooks/zoho', (req, res) => {
-  webhooksHandler(req, res);
+app.use('/api/webhooks/zoho', (req, res, next) => {
+  run(webhooksHandler)(req, res, next);
 });
 
 /*  Front-end analytics beacon. This route must stay unauthenticated — a page
@@ -383,6 +404,27 @@ app.use('/api/*', (req, res) => {
       code: 'ROUTE_NOT_FOUND',
       message: `API endpoint ${req.method} ${req.originalUrl} does not exist on Catalyst Gateway`
     }
+  });
+});
+
+
+/*  Final error handler. Without one, a rejected handler promise left the
+ *  request hanging until the platform timed it out — 36 seconds of nothing,
+ *  then a raw AppSail error page.
+ *
+ *  The message is deliberately generic: an exception string can carry a
+ *  connection string, a file path or a token, and this endpoint is public.
+ *  The real error is logged in full server-side, where it belongs. */
+app.use((err, req, res, next) => {
+  console.error(`[unhandled] ${req.method} ${req.originalUrl}:`, err && err.stack ? err.stack : err);
+  if (res.headersSent) return next(err);
+  res.status(500).json({
+    success: false,
+    error: {
+      code: 'INTERNAL_ERROR',
+      message: 'Something went wrong on our side. Please try again shortly.'
+    },
+    timestamp: new Date().toISOString()
   });
 });
 
