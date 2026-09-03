@@ -112,8 +112,25 @@ class ZohoOAuth {
     // If a permanent refresh token was returned, persist it
     if (data.refresh_token) {
       process.env.ZOHO_CRM_REFRESH_TOKEN = data.refresh_token;
-      this.persistRefreshTokenToEnv(data.refresh_token);
-      console.log('[Zoho OAuth] Permanent refresh_token acquired and persisted successfully.');
+      /*  Say which of the two actually happened.
+       *
+       *  This logged "persisted successfully" unconditionally, but
+       *  persistRefreshTokenToEnv only writes when a .env file exists on
+       *  disk — and .env is excluded from the AppSail artifact by
+       *  .catalystignore, so inside the deployed container it never does.
+       *  A refresh token obtained through the one-time code exchange
+       *  therefore lived only in this process and was gone on the next
+       *  restart or deploy, while the log said it had been saved
+       *  permanently. The next failure would look like Zoho revoking the
+       *  token rather than the token never having been stored. */
+      const persisted = this.persistRefreshTokenToEnv(data.refresh_token);
+      if (persisted) {
+        console.log('[Zoho OAuth] refresh_token acquired and written to .env.');
+      } else {
+        console.warn('[Zoho OAuth] refresh_token acquired but NOT persisted — it is held in ' +
+          'memory only and will be lost on restart. Set ZOHO_CRM_REFRESH_TOKEN in the AppSail ' +
+          'environment configuration to make it permanent.');
+      }
     }
 
     return {
@@ -126,6 +143,7 @@ class ZohoOAuth {
   /**
    * Persist newly acquired refresh token to .env file
    */
+  /** @returns {boolean} true only if the token was actually written to disk. */
   persistRefreshTokenToEnv(refreshToken) {
     try {
       const envPath = path.resolve(process.cwd(), '.env');
@@ -144,9 +162,12 @@ class ZohoOAuth {
           envContent = envContent.replace(/ZOHO_CRM_CODE=.*/, 'ZOHO_CRM_CODE=');
         }
         fs.writeFileSync(envPath, envContent, 'utf8');
+        return true;
       }
+      return false;
     } catch (e) {
       console.warn('[Zoho OAuth] Could not write refresh token to .env:', e.message);
+      return false;
     }
   }
 
