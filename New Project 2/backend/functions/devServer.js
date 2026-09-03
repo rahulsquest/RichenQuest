@@ -416,6 +416,25 @@ app.use('/api/*', (req, res) => {
  *  connection string, a file path or a token, and this endpoint is public.
  *  The real error is logged in full server-side, where it belongs. */
 app.use((err, req, res, next) => {
+  /*  A disallowed browser origin is a configuration mismatch, not a fault in
+   *  this service. Answering 500 "something went wrong on our side" for it is
+   *  simply untrue, and it sends whoever is debugging hunting for a server bug
+   *  that does not exist. Reported as 403 naming the refused origin so the fix
+   *  is obvious, and logged at warn because nothing here actually failed. */
+  if (err && err.message === 'origin not allowed') {
+    const origin = req.get('origin') || 'unknown';
+    console.warn(`[cors] refused origin ${origin} — add it to CORS_ALLOWED_ORIGINS to permit it`);
+    if (res.headersSent) return next(err);
+    return res.status(403).json({
+      success: false,
+      error: {
+        code: 'ORIGIN_NOT_ALLOWED',
+        message: `This API does not accept browser requests from ${origin}.`
+      },
+      timestamp: new Date().toISOString()
+    });
+  }
+
   console.error(`[unhandled] ${req.method} ${req.originalUrl}:`, err && err.stack ? err.stack : err);
   if (res.headersSent) return next(err);
   res.status(500).json({
