@@ -43,6 +43,19 @@ export function ApplicationTracker({ universities = [] }) {
   );
 }
 
+/*  Renders only the fields the Counselors table actually has:
+ *  counselorId, name, email, phone, title.
+ *
+ *  It previously also rendered counselor.rating as a ★ score,
+ *  counselor.office, and a counselor.specialization tag list. None of those
+ *  are columns — they were left behind when the fabricated seed counsellor
+ *  ("Eleanor Vance", "London HQ", rating 4.95) was removed from dataStore.js.
+ *  Invisible while the table is empty, but the first real counsellor seeded
+ *  would have rendered "★ undefined" above their name and a blank office
+ *  line — reintroducing an invented rating on a real person's card.
+ *
+ *  title and phone are optional in the schema, so they render only when set
+ *  rather than leaving a label with nothing after it. */
 export function CounselorCard({ counselor }) {
   if (!counselor) return null;
 
@@ -51,12 +64,9 @@ export function CounselorCard({ counselor }) {
       <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/10 rounded-full blur-2xl -mr-10 -mt-10" />
       
       <div className="relative z-10">
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center mb-4">
           <span className="px-2.5 py-1 rounded-full bg-indigo-500/20 text-indigo-200 border border-indigo-500/30 text-[11px] font-semibold uppercase tracking-wider">
             Assigned Counselor
-          </span>
-          <span className="text-amber-400 font-bold text-xs flex items-center gap-1">
-            ★ {counselor.rating}
           </span>
         </div>
 
@@ -66,22 +76,15 @@ export function CounselorCard({ counselor }) {
           </div>
           <div>
             <h3 className="text-base font-bold text-white">{counselor.name}</h3>
-            <p className="text-xs text-indigo-200">{counselor.title}</p>
-            <p className="text-[11px] text-slate-400 mt-0.5">{counselor.office}</p>
+            {counselor.title && <p className="text-xs text-indigo-200">{counselor.title}</p>}
           </div>
         </div>
 
-        <div className="space-y-1.5 text-xs text-slate-300 mb-4 border-t border-slate-800 pt-3">
+        <div className="space-y-1.5 text-xs text-slate-300 border-t border-slate-800 pt-3">
           <p><strong className="text-slate-200">Email:</strong> {counselor.email}</p>
-          <p><strong className="text-slate-200">Direct Phone:</strong> {counselor.phone}</p>
-        </div>
-
-        <div className="flex flex-wrap gap-1.5">
-          {counselor.specialization?.map((spec, idx) => (
-            <span key={idx} className="text-[10px] px-2 py-0.5 rounded-md bg-slate-800 text-slate-300 border border-slate-700">
-              {spec}
-            </span>
-          ))}
+          {counselor.phone && (
+            <p><strong className="text-slate-200">Direct Phone:</strong> {counselor.phone}</p>
+          )}
         </div>
       </div>
     </div>
