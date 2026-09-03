@@ -37,54 +37,39 @@ process.on('unhandledRejection', e => console.error('[fatal] unhandled', e));
 const app = require(path.join(__dirname, 'functions', 'devServer.js'));
 const CatalystDataStore = require(path.join(__dirname, 'functions', 'shared', 'dataStore.js'));
 
-/*  Hydration is awaited before the process binds a port, so no request can
- *  observe an empty store when Catalyst actually has data for it — the
- *  alternative (hydrate in the background after listen()) would let an
- *  early request race the load and see a false "no records yet".
+/*  THE PORT BINDS FIRST. NOTHING REMOTE GATES IT.
  *
- *  BUT IT IS NOW BOUNDED, AND THAT IS WHY THIS SERVICE WOULD NOT START.
- *  hydrate() walks every table in TABLE_NAMES, and for each one does an
- *  existence probe plus a paginated getIterableRows() — real network calls
- *  inside Catalyst, with no timeout anywhere in that path. Locally it returns
- *  in milliseconds because CATALYST_CONFIG is absent, catalystTable() returns
- *  null and every table is skipped, so this await is free and invisible.
- *  Inside AppSail the config IS injected, the calls are real, and if the Data
- *  Store is slow or those tables do not exist yet, the loop outlives the
- *  platform's startup window. Nothing binds, the application logs no error
- *  because nothing failed, and AppSail reports exactly:
+ *  This used to await hydration before listening, capped at 15s. hydrate()
+ *  walks every table and does an existence probe plus a paginated
+ *  getIterableRows() — real network calls inside Catalyst. Locally that is
+ *  invisible: CATALYST_CONFIG is absent, catalystTable() returns null, every
+ *  table is skipped and the await costs nothing. Inside AppSail the config IS
+ *  injected and the calls are real, so startup could spend up to 15 seconds
+ *  not listening. If that outlives the platform's startup window nothing is
+ *  bound when it checks, the application logs no error because nothing
+ *  failed, and AppSail reports exactly:
  *      "Execution failed. Please check the startup command or port."
- *  Reproduced locally with the production shape (10 tables, unbounded waits):
- *  the port was still unbound at T+20s.
  *
- *  So the port binding no longer depends on a remote service answering. In
- *  the normal case hydration wins the race well inside the timeout and the
- *  original intent holds; in the pathological case the service comes up with
- *  a cold store, which is a degraded API rather than no API at all. Whichever
- *  happens is logged, and a real hydrate error is still surfaced rather than
- *  swallowed. */
-const HYDRATE_TIMEOUT_MS = Number(process.env.HYDRATE_TIMEOUT_MS || 15000);
+ *  A health check cannot pass a port that is not open yet, so binding is now
+ *  the very first thing that happens and hydration runs after it, in the
+ *  background.
+ *
+ *  The cost is real and worth stating: a request arriving before hydration
+ *  finishes sees a cold store. That is safe here only because the layers
+ *  below already tell the truth about it — getStorageMode() reports
+ *  IN_MEMORY_FALLBACK until a table's probe genuinely succeeds, and the lead
+ *  durability gate refuses to claim success on a non-durable write. A cold
+ *  store therefore degrades honestly rather than inventing "no records yet".
+ *  A degraded API that answers beats a healthy one that never starts. */
 
-let listening = false;
-function bind(reason) {
-  if (listening) return;            // race winner already bound the port
-  listening = true;
-  app.listen(PORT, HOST, () => {
-    console.log(`RichenQuest API listening on ${HOST}:${PORT} (store: ${reason})`);
-  });
-}
+app.listen(PORT, HOST, () => {
+  console.log(`RichenQuest API listening on ${HOST}:${PORT} (hydration pending)`);
 
-Promise.race([
-  CatalystDataStore.hydrate().then(() => 'hydrated'),
-  new Promise(resolve => setTimeout(() => resolve('hydrate-timeout'), HYDRATE_TIMEOUT_MS))
-])
-  .then(outcome => {
-    if (outcome === 'hydrate-timeout') {
-      console.warn(`[dataStore] hydration exceeded ${HYDRATE_TIMEOUT_MS}ms; binding the port now and continuing to load in the background.`);
-    }
-    bind(outcome);
-  })
-  .catch(e => {
-    // Not swallowed: a genuine hydrate failure is logged with its message.
-    console.error('[dataStore] hydration failed:', e && e.message);
-    bind('hydrate-failed');
-  });
+  /*  Started only once the port is open, and deliberately not awaited. Its
+   *  failure is logged, never rethrown — an unhandled rejection here would
+   *  take down an HTTP server that is already serving traffic perfectly
+   *  well. */
+  CatalystDataStore.hydrate()
+    .then(() => console.log('[dataStore] hydration complete; Catalyst-backed tables are live.'))
+    .catch(e => console.error('[dataStore] hydration failed, continuing with the in-memory store:', e && e.message));
+});
