@@ -10,6 +10,33 @@ const notificationsTable = CatalystDataStore.getTable('Notifications');
 const casesTable = CatalystDataStore.getTable('Cases');
 const documentsTable = CatalystDataStore.getTable('Documents');
 
+
+/*  Insert a notification at most once per real-world event.
+ *
+ *  Zoho Flow retries a webhook whenever it does not get a 2xx, so the same
+ *  delivery arrives more than once as a matter of course. COUNSELOR_ASSIGNED
+ *  survives that because it sets fields to fixed values, but both
+ *  notification cases inserted a fresh row every time — a retried delivery
+ *  showed the student the same "Document Approved" or "Offer Letter Received"
+ *  twice, which reads as two separate events rather than one.
+ *
+ *  The id is derived from the event and its subject, so a replay resolves to
+ *  the same row and is skipped. That uses the existing notificationId column
+ *  and needs no schema change. Where the payload carries no stable reference
+ *  there is nothing to derive from, so it falls back to the previous
+ *  behaviour rather than dropping a genuine notification — with a random
+ *  suffix, because two deliveries inside the same millisecond would otherwise
+ *  collide on Date.now() alone.
+ */
+function insertNotificationOnce(table, key, fields) {
+  const notificationId = key
+    ? `NTF_${key}`
+    : `NTF_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+  if (key && table.findOne(n => n.notificationId === notificationId)) return false;
+  table.insert({ notificationId, isRead: false, createdAt: new Date().toISOString(), ...fields });
+  return true;
+}
+
 async function handleWebhooks(req, res) {
   const method = req.method;
 
@@ -66,14 +93,11 @@ async function handleWebhooks(req, res) {
           reviewerNotes: data.notes || 'Verified by admissions counselor.'
         });
         if (data?.studentId) {
-          notificationsTable.insert({
-            notificationId: `NTF_${Date.now()}`,
+          insertNotificationOnce(notificationsTable, `DOC_VERIFIED_${data.documentId}`, {
             studentId: data.studentId,
             type: 'DOCUMENT_APPROVED',
             title: 'Document Approved by Counselor',
             message: data.message || 'Your submitted document has been approved.',
-            isRead: false,
-            createdAt: new Date().toISOString(),
             actionUrl: '/documents'
           });
         }
@@ -82,14 +106,12 @@ async function handleWebhooks(req, res) {
     }
     case 'APPLICATION_OFFER_RECEIVED': {
       if (data?.studentId) {
-        notificationsTable.insert({
-          notificationId: `NTF_${Date.now()}`,
+        const offerRef = data.applicationId || data.offerId || data.reference || null;
+        insertNotificationOnce(notificationsTable, offerRef ? `OFFER_${offerRef}` : null, {
           studentId: data.studentId,
           type: 'APPLICATION_UPDATE',
           title: '🎉 University Offer Letter Received!',
           message: data.message || 'Congratulations! An offer letter has been uploaded to your case.',
-          isRead: false,
-          createdAt: new Date().toISOString(),
           actionUrl: '/applications'
         });
       }
