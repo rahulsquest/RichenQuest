@@ -94,12 +94,20 @@ async function handleLeads(req, res) {
 
     // 1. Sync to Zoho CRM Leads Module (with duplicate email search)
     const crmSyncResult = await ZohoClient.syncLeadToCrm(newLead);
-    if (crmSyncResult?.crmLeadId) {
-      leadsTable.update(l => l.leadId === leadId, {
-        zohoCrmLeadId: crmSyncResult.crmLeadId,
-        zohoCrmStatus: crmSyncResult.status
-      });
-    }
+    /*  The outcome is recorded whether or not CRM accepted the lead.
+     *
+     *  This used to write zohoCrmStatus only when a crmLeadId came back, so a
+     *  lead that failed to sync was stored with the field null — identical to
+     *  one where sync was never attempted. Nobody could answer "which leads
+     *  never reached CRM", which is the one question that matters when
+     *  credentials expire or Zoho has an incident.
+     *
+     *  Now SYNCED / SYNC_ERROR / UNCONFIGURED is always persisted, so the
+     *  failures are queryable and can be re-driven later. */
+    leadsTable.update(l => l.leadId === leadId, {
+      zohoCrmLeadId: crmSyncResult?.crmLeadId || null,
+      zohoCrmStatus: crmSyncResult?.status || 'UNKNOWN'
+    });
 
     // 2. Trigger Zoho Flow Automation Webhook
     const flowResult = await ZohoClient.emitFlowEvent('LEAD_CREATED', {

@@ -63,7 +63,29 @@ async function handleStudents(req, res) {
     const updated = studentsTable.update(s => s.studentId === existing.studentId, updates);
 
     // Sync updated details to Zoho CRM Contact
-    ZohoClient.syncContactToCrm(updated).catch(err => console.error('[Student CRM Update Error]:', err.message));
+    /*  The result was previously discarded entirely — a profile change that
+     *  never reached CRM left no trace at all, so the counsellor's view could
+     *  drift from the student's without anyone being able to detect it. */
+    ZohoClient.syncContactToCrm(updated).then(crmRes => {
+      const synced = Boolean(crmRes?.crmContactId);
+      if (!synced) console.warn('[students] profile change did not reach CRM:', crmRes?.status || 'UNKNOWN');
+      studentsTable.update(s => s.studentId === existing.studentId, {
+        zohoCrmSyncStatus: {
+          synced,
+          crmContactId: crmRes?.crmContactId || null,
+          status: crmRes?.status || 'UNKNOWN',
+          lastSyncTimestamp: new Date().toISOString()
+        }
+      });
+    }).catch(err => {
+      console.error('[Student CRM Update Error]:', err.message);
+      studentsTable.update(s => s.studentId === existing.studentId, {
+        zohoCrmSyncStatus: {
+          synced: false, crmContactId: null,
+          status: 'SYNC_ERROR', lastSyncTimestamp: new Date().toISOString()
+        }
+      });
+    });
 
     // Emit Profile Updated Flow Event
     ZohoClient.emitFlowEvent('STUDENT_PROFILE_UPDATED', {

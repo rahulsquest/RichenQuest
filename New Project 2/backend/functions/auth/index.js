@@ -263,21 +263,35 @@ async function handleAuth(req, res) {
       ? { ...newStudent, ...consent.record() }
       : newStudent;
 
+    /*  A failed contact sync is recorded, not just a successful one. Without
+     *  this the student row keeps its initial {synced:false, crmContactId:null}
+     *  forever, which reads exactly the same as "sync was never attempted" —
+     *  so a counsellor has no way to find the students CRM never received. */
     ZohoClient.syncContactToCrm(contactPayload).then(crmRes => {
-      if (crmRes?.crmContactId) {
-        studentsTable.update(s => s.studentId === studentId, {
-          zohoCrmSyncStatus: {
-            synced: true,
-            crmContactId: crmRes.crmContactId,
-            lastSyncTimestamp: new Date().toISOString()
-          }
-        });
+      const synced = Boolean(crmRes?.crmContactId);
+      studentsTable.update(s => s.studentId === studentId, {
+        zohoCrmSyncStatus: {
+          synced,
+          crmContactId: crmRes?.crmContactId || null,
+          status: crmRes?.status || 'UNKNOWN',
+          lastSyncTimestamp: new Date().toISOString()
+        }
+      });
+      if (synced) {
         usersTable.update(u => u.userId === userId, {
           leadId: crmRes.crmContactId,
           crmModule: 'Contacts'
         });
       }
-    }).catch(err => console.error('[Auth CRM Sync Error]:', err.message));
+    }).catch(err => {
+      console.error('[Auth CRM Sync Error]:', err.message);
+      studentsTable.update(s => s.studentId === studentId, {
+        zohoCrmSyncStatus: {
+          synced: false, crmContactId: null,
+          status: 'SYNC_ERROR', lastSyncTimestamp: new Date().toISOString()
+        }
+      });
+    });
 
     // 2. Emit Zoho Flow Registration Event
     ZohoClient.emitFlowEvent('STUDENT_REGISTERED', {
