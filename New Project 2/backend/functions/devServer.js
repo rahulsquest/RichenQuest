@@ -129,6 +129,34 @@ app.use((req, res, next) => {
  *  the process is running and serving /api correctly. This is deliberately
  *  dependency-free so it stays 200 even when Zoho is unreachable — /api/health
  *  is the endpoint that reports real degradation. */
+/*  Catalyst identity arrives per request, not per process.
+ *
+ *  AppSail does not set CATALYST_CONFIG, so the SDK's initializeApp() path is
+ *  unavailable there and the Data Store would silently stay in-memory — a
+ *  student's enquiry would reach the durability gate with nowhere durable to
+ *  go. The Catalyst edge does attach the identity headers, so the app is
+ *  built from the first request that carries them and cached.
+ *
+ *  Deliberately cheap and non-blocking: it runs once, is skipped forever
+ *  after, and a failure is logged and ignored rather than failing the
+ *  request — a store that cannot initialise must degrade honestly, which the
+ *  layers below already do, not take the API down with it. */
+let _catalystAdopted = false;
+app.use((req, res, next) => {
+  if (!_catalystAdopted && !CatalystDataStore.isCatalystAvailable()) {
+    if (req.get('x-zc-project-key') || req.get('x-zc-projectid')) {
+      _catalystAdopted = true;
+      try {
+        const catalyst = require('zcatalyst-sdk-node');
+        CatalystDataStore.adoptCatalystApp(catalyst.initialize(req));
+      } catch (e) {
+        console.warn('[dataStore] request-scoped Catalyst init failed:', e && e.message);
+      }
+    }
+  }
+  next();
+});
+
 app.get('/', (req, res) => res.status(200).json({
   service: 'RichenQuest API',
   status: 'ok',

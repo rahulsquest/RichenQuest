@@ -90,6 +90,40 @@ function getCatalystApp() {
   return _catalystApp;
 }
 
+/*  Adopt an SDK app built from a live request.
+ *
+ *  WHY THIS EXISTS
+ *    initializeApp() reads project_id / project_key / environment from
+ *    process.env.CATALYST_CONFIG. AppSail does not set that variable — proven
+ *    on the deployed service, where the SDK's own error is "Options provided
+ *    for initializeApp in invalid." and every table reported
+ *    IN_MEMORY_FALLBACK. So on AppSail the process-level path can never work,
+ *    and a lead could reach the durability gate with nowhere durable to go.
+ *
+ *    The SDK's other path, initialize(req), reads the identity from request
+ *    headers instead. Confirmed on the deployed service: all five of
+ *    x-zc-projectid, x-zc-project-domain, x-zc-project-key, x-zc-environment
+ *    and x-zc-project-secret-key are attached by the Catalyst edge. That path
+ *    is available; the environment-variable one is not.
+ *
+ *  WHY CACHING ONE APP IS CORRECT HERE
+ *    Every request to this service carries the identity of the same project
+ *    and the same environment, so the app built from the first request is
+ *    equally valid for all of them. Caching it keeps find/insert/update
+ *    synchronous and leaves all ~50 call sites — including the ownership
+ *    checks — completely untouched, which threading a request through the
+ *    data layer would not.
+ *
+ *    Ignored once one is already held, so a later request cannot swap the
+ *    store underneath work in flight. */
+function adoptCatalystApp(app) {
+  if (!app || _catalystApp) return false;
+  _catalystApp = app;
+  _catalystAttempted = true;
+  console.log('[dataStore] Catalyst SDK initialized from request headers; Data Store is live.');
+  return true;
+}
+
 const _tableAvailable = {}; // tableName -> true/false, cached after first probe per process
 
 /* Resolves to the real Catalyst Table for a name, or null if Data Store
@@ -428,6 +462,11 @@ class CatalystDataStore {
    *  they otherwise look identical. */
   static isCatalystAvailable() {
     return Boolean(getCatalystApp());
+  }
+
+  /** Adopt an SDK app built from a live request — see adoptCatalystApp above. */
+  static adoptCatalystApp(app) {
+    return adoptCatalystApp(app);
   }
 
   static getStorageReport() {
