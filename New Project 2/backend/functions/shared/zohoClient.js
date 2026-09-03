@@ -61,12 +61,26 @@ class ZohoClient {
      *
      *  `eventTimestamp`, not `timestamp`: Catalyst rejects `timestamp` as a
      *  reserved keyword, the same way it rejects `read` and `date`. */
+    /*  The audit row is written AFTER the dispatch, so it can record what
+     *  actually happened rather than only that an attempt was made.
+     *
+     *  It used to be inserted first and never updated, so a delivered event
+     *  and a failed one were byte-identical in the audit log — there was no
+     *  way to ask "which Flow events never reached Zoho". direction carries
+     *  the outcome because it is an existing column; no schema change, and
+     *  OUTBOUND_FAILED fits its Text(16). */
+    const result = await zohoFlow.emitEvent(event, payload);
+    const delivered = result?.status === 'DISPATCHED';
+    if (!delivered) {
+      console.warn(`[zohoClient] Flow event ${event} not delivered:`, result?.status || 'UNKNOWN');
+    }
     CatalystDataStore.getTable('IntegrationEvents').insert({
       event,
       eventTimestamp: new Date().toISOString(),
+      direction: delivered ? 'OUTBOUND' : 'OUTBOUND_FAILED',
       payload: CatalystDataStore.boundAuditValue(payload, `IntegrationEvents.payload (${event})`)
     });
-    return zohoFlow.emitEvent(event, payload);
+    return result;
   }
 
   static async syncLeadToCrm(leadData) {

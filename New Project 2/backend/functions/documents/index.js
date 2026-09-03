@@ -114,6 +114,16 @@ async function handleDocuments(req, res) {
         workDriveStatus: workDriveResult?.status || 'UNKNOWN',
         at: new Date().toISOString()
       }));
+      /*  Durable, not just logged. The console line above is lost when the
+       *  AppSail instance recycles, and "a log is not storage" is the same
+       *  rule the lead durability gate already follows. This row is how
+       *  someone later finds the uploads that never reached WorkDrive. */
+      CatalystDataStore.getTable('IntegrationEvents').insert({
+        event: 'WORKDRIVE_UPLOAD_ERROR',
+        eventTimestamp: new Date().toISOString(),
+        direction: 'OUTBOUND_FAILED',
+        service: workDriveResult?.status || 'UNKNOWN'
+      });
       return sendError(res, 'STORAGE_UNAVAILABLE',
         'We could not store your document right now, so it has not been submitted. Please try again shortly, or email it to support@richenquest.com.',
         503);

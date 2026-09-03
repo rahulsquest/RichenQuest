@@ -129,13 +129,32 @@ module.exports = async function handlePayments(req, res) {
           note: 'An invoice already exists for this service.' });
       }
 
-      const contactId = await zohoBooks.findOrCreateContact(me.user.email, me.user.fullName);
-      const created = await zohoBooks.createInvoice({
-        contactId,
-        itemName: svc.name,
-        rate: svc.price,
-        referenceNumber: `${me.user.userId}:${service_code}`
-      });
+      /*  A failed invoice attempt is recorded too.
+       *
+       *  The IntegrationEvent below was written only after success, so an
+       *  invoice that failed to create left no durable trace at all — the
+       *  student saw an error and nobody could later find out that Books had
+       *  rejected it, or why. Money-adjacent failures are the last place that
+       *  should be true. */
+      let contactId, created;
+      try {
+        contactId = await zohoBooks.findOrCreateContact(me.user.email, me.user.fullName);
+        created = await zohoBooks.createInvoice({
+          contactId,
+          itemName: svc.name,
+          rate: svc.price,
+          referenceNumber: `${me.user.userId}:${service_code}`
+        });
+      } catch (e) {
+        CatalystDataStore.getTable('IntegrationEvents').insert({
+          event: 'BOOKS_INVOICE_ERROR',
+          eventTimestamp: new Date().toISOString(),
+          direction: 'OUTBOUND_FAILED',
+          userId: me.user.userId,
+          service: service_code
+        });
+        throw e;
+      }
 
       usersTable.update(u => u.userId === me.user.userId, {
         invoices: { ...(me.user.invoices || {}), [service_code]: created.invoiceId }
