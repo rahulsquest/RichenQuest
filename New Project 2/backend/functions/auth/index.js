@@ -127,6 +127,30 @@ async function handleAuth(req, res) {
     const caseId = `CASE_RQ_${new Date().getFullYear()}_${Math.floor(1000 + Math.random() * 9000)}`;
     const defaultCounselor = counselorsTable.find()[0];
 
+    /*  Prove we can issue a token BEFORE writing anything.
+     *
+     *  generateToken() used to run after all four inserts. session.sign()
+     *  refuses to sign with a missing or too-short SESSION_SECRET, so on a
+     *  misconfigured deployment signup created Users, Students, Cases and
+     *  Notifications rows and then returned an error. Observed live: four
+     *  orphaned record sets from four failed signups.
+     *
+     *  The orphaned Users row is the damaging part — the next attempt with
+     *  the same address hits the duplicate check above and returns
+     *  EMAIL_EXISTS, so the student is locked out of an account they were
+     *  told had not been created, and cannot sign in to it either.
+     *
+     *  Signing first costs nothing and makes the failure atomic: if a token
+     *  cannot be issued, no record exists to strand. */
+    let token;
+    try {
+      token = generateToken({ userId, studentId, email: normalizedEmail, role: 'student' });
+    } catch (e) {
+      console.error('[auth] cannot issue a session token; refusing to create a partial account:', e.message);
+      return sendError(res, 'SERVICE_UNAVAILABLE',
+        'Account creation is temporarily unavailable. Please try again shortly.', 503);
+    }
+
     const newUser = usersTable.insert({
       userId,
       studentId,
@@ -266,7 +290,7 @@ async function handleAuth(req, res) {
       targetCountries
     });
 
-    const token = generateToken(newUser);
+    // token was issued before any record was written, above
 
     return sendSuccess(res, {
       token,
