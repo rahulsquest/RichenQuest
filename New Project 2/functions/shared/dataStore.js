@@ -422,6 +422,14 @@ class CatalystDataStore {
     };
   }
 
+  /*  Whether the Catalyst SDK initialised at all, as opposed to whether any
+   *  individual table exists. Reported by /api/health so a completely absent
+   *  Data Store is distinguishable from a single missing table — from outside
+   *  they otherwise look identical. */
+  static isCatalystAvailable() {
+    return Boolean(getCatalystApp());
+  }
+
   static getStorageReport() {
     const report = {};
     for (const name of TABLE_NAMES) report[name] = CatalystDataStore.getStorageMode(name);

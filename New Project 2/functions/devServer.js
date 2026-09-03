@@ -22,6 +22,7 @@ const webhooksHandler = require('./webhooks');
 const ZohoClient = require('./shared/zohoClient');
 const { sendSuccess, sendError } = require('./shared/response');
 const { createRateLimiter } = require('./shared/rateLimit');
+const CatalystDataStore = require('./shared/dataStore');
 
 const app = express();
 
@@ -149,6 +150,23 @@ app.get('/api/health', async (req, res) => {
       (process.env.SESSION_SECRET || process.env.ZOHO_WEBHOOK_SECRET || '').length >= 16) },
     zohoAuth: { configured: zohoOAuth.isConfigured(), reachable: false, detail: null },
     crm: { reachable: false, detail: null },
+    /*  Whether writes actually persist, per table.
+     *
+     *  This was the one thing health did not say, and it is the thing that
+     *  decides whether a student's enquiry survives a restart. The endpoint
+     *  already separates "the process is up" from "Zoho answers"; storage
+     *  belongs in that same distinction. PERSISTENT only once a table's
+     *  existence probe has genuinely succeeded — everything else, including
+     *  "not checked yet", reports IN_MEMORY_FALLBACK, because that is the
+     *  store actually serving reads and writes right now.
+     *
+     *  sdkInitialised is reported separately: a Data Store that is entirely
+     *  absent and one where a single table is missing are different faults,
+     *  and without this they look identical from outside. */
+    storage: {
+      sdkInitialised: CatalystDataStore.isCatalystAvailable(),
+      tables: CatalystDataStore.getStorageReport()
+    },
     integrations: ZohoClient.getIntegrationStatus()
   };
 
