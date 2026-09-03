@@ -298,7 +298,7 @@ app.use('/api/leads', (req, res, next) => {
   // GET is staff-only and already gated; the flood risk is the public POST.
   if (req.method === 'POST') return leadsRateLimit(req, res, next);
   return next();
-}, (req, res) => {
+}, (req, res, next) => {
   run(leadsHandler)(req, res, next);
 });
 
@@ -339,7 +339,7 @@ app.use('/api/notifications', requireStudent, (req, res, next) => {
 /*  RichenQuest intelligence. Every route derives the student's record id from
  *  the signed session — none of them accept an id from the caller. */
 ['home','profile','profile-score','opportunities','roadmap','report','mentor','request'].forEach(r => {
-  app.use(`/api/${r}`, (req, res) => {
+  app.use(`/api/${r}`, (req, res, next) => {
     req.url = `/${r}`;
     run(intelligenceHandler)(req, res, next);
   });
