@@ -65,6 +65,28 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Catalyst-Client']
 }));
 
+/*  Catalyst adds its own Access-Control-Allow-Origin to normal responses.
+ *
+ *  Measured on the deployed service: a GET carrying an allowed Origin came
+ *  back with TWO Access-Control-Allow-Origin headers — one capitalised from
+ *  the platform, one lowercase from the cors package here. Locally this app
+ *  emits exactly one, so the second is added by Catalyst. The CORS spec
+ *  allows the header to appear only once, so Chrome refuses the response
+ *  outright: every call from www.richenquest.com failed with "TypeError:
+ *  Failed to fetch" even though curl saw HTTP 200.
+ *
+ *  Preflight is not affected — an OPTIONS response carried exactly one, and
+ *  cors() answers those itself — so the header is dropped only on normal
+ *  responses, leaving the platform's single copy to stand.
+ *
+ *  The origin allowlist is untouched and still does the security work: a
+ *  disallowed origin is rejected by the cors callback above and answered 403
+ *  before reaching here. */
+app.use((req, res, next) => {
+  if (req.method !== 'OPTIONS') res.removeHeader('Access-Control-Allow-Origin');
+  next();
+});
+
 /*  Security headers.
  *
  *  Safe to make this strict because this process serves JSON and nothing
