@@ -165,6 +165,23 @@ app.get('/api/health', async (req, res) => {
      *  and without this they look identical from outside. */
     storage: {
       sdkInitialised: CatalystDataStore.isCatalystAvailable(),
+      /*  Which Catalyst identity headers the edge actually attaches.
+       *
+       *  The SDK initialises two ways: initializeApp() from a CATALYST_CONFIG
+       *  environment variable, or initialize(req) from these request headers.
+       *  AppSail does not set CATALYST_CONFIG — proven, sdkInitialised is
+       *  false and the SDK's own error is "Options provided for initializeApp
+       *  in invalid." So whether the header path is available decides which
+       *  fix is correct, and guessing between them would mean a refactor that
+       *  might not work.
+       *
+       *  NAMES ONLY. x-zc-project-key and x-zc-project-secret-key are
+       *  credentials; their presence is diagnostic, their values are never
+       *  returned. */
+      catalystHeadersPresent: [
+        'x-zc-projectid', 'x-zc-project-domain', 'x-zc-project-key',
+        'x-zc-environment', 'x-zc-project-secret-key'
+      ].filter(h => Boolean(req.get(h))),
       tables: CatalystDataStore.getStorageReport()
     },
     integrations: ZohoClient.getIntegrationStatus()
